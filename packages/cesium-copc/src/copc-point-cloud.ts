@@ -700,7 +700,9 @@ export class CopcPointCloud {
     const sphere = this.#sphere(bounds);
     const centerDistance = Cartesian3.distance(camera.positionWC, sphere.center);
     const projectedRadius = sphere.radius / Math.max(centerDistance, sphere.radius, 1);
-    return Math.max(projectedRadius * projectedRadius, Number.EPSILON);
+    const halfVerticalFov = Math.max((camera.frustum.fovy ?? Math.PI / 3) * 0.5, Number.EPSILON);
+    const viewportRadius = projectedRadius / Math.tan(halfVerticalFov);
+    return Math.min(1, Math.max(viewportRadius * viewportRadius, Number.EPSILON));
   }
 
   #priority(

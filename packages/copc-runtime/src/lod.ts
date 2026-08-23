@@ -104,10 +104,12 @@ export function selectLod(
         chosenWeight += candidate.weight;
         remainingBudget -= candidate.pointDelta;
       }
-      const coverage = totalWeight > 0 ? chosenWeight / totalWeight : 0;
-      if (coverage < minimumCoverage) continue;
+      const relativeCoverage = totalWeight > 0 ? chosenWeight / totalWeight : 0;
+      const viewportCoverage = view.screenWeight ? Math.min(1, chosenWeight) : 0;
+      if (relativeCoverage < minimumCoverage && viewportCoverage < minimumCoverage) continue;
 
       const completeCohort = chosen.length === refinements.length;
+      const fillsViewport = viewportCoverage >= minimumCoverage;
       for (const candidate of chosen) {
         const key = formatNodeId(candidate.node.id);
         if (!selected.has(key)) continue;
@@ -115,7 +117,7 @@ export function selectLod(
         for (const child of candidate.children) {
           selected.set(formatNodeId(child.id), child);
           // Do not refine deeper after only a partial screen cohort was affordable.
-          if (completeCohort) consider(child);
+          if (completeCohort || fillsViewport) consider(child);
         }
         pointCount += candidate.pointDelta;
       }
@@ -218,7 +220,8 @@ export function resolveReadyLod(
       }
       if (refinedWeight > 0
         && refinableWeight > 0
-        && refinedWeight / refinableWeight < minimumCoverage) {
+        && refinedWeight / refinableWeight < minimumCoverage
+        && (!options.weight || Math.min(1, refinedWeight) < minimumCoverage)) {
         const immediateChildren = Array.from(branches.values());
         return immediateChildren.every(isReady)
           ? immediateChildren

@@ -69,7 +69,7 @@ describe("LOD selection", () => {
     const result = selectLod(
       root,
       (id) => id.depth === 0 ? children : (grandchildrenByParent.get(formatNodeId(id)) ?? []),
-      { ...view, screenWeight: () => 1 },
+      { ...view, screenWeight: () => 0.05 },
       { maximumScreenSpaceError: 2, pointBudget: 2_200, minimumRefinementCoverage: 0.4 },
     );
     expect(result.selected).toHaveLength(8);
@@ -84,12 +84,34 @@ describe("LOD selection", () => {
     const result = selectLod(
       root,
       (id) => id.depth === 0 ? children : (grandchildrenByParent.get(formatNodeId(id)) ?? []),
-      { ...view, screenWeight: () => 1 },
+      { ...view, screenWeight: () => 0.05 },
       { maximumScreenSpaceError: 2, pointBudget: 3_600, minimumRefinementCoverage: 0.4 },
     );
     expect(result.selected).toHaveLength(36);
     expect(result.selected.filter((node) => node.id.depth === 2)).toHaveLength(32);
     expect(result.pointCount).toBe(3_600);
+  });
+
+  it("refines an enlarged region even when it is a small share of the candidate set", () => {
+    const grandchildrenByParent = new Map(children.map((child) => [
+      formatNodeId(child.id),
+      childNodeIds(child.id).map((id) => entry(id)),
+    ]));
+    const result = selectLod(
+      root,
+      (id) => id.depth === 0 ? children : (grandchildrenByParent.get(formatNodeId(id)) ?? []),
+      {
+        ...view,
+        screenWeight: (bounds) => bounds[0] === children[0]!.bounds[0]
+          && bounds[1] === children[0]!.bounds[1]
+          && bounds[2] === children[0]!.bounds[2]
+          ? 0.5
+          : 0.01,
+      },
+      { maximumScreenSpaceError: 2, pointBudget: 1_500, minimumRefinementCoverage: 0.4 },
+    );
+    expect(result.selected.filter((node) => node.id.depth === 2)).toHaveLength(8);
+    expect(result.pointCount).toBe(1_500);
   });
 
   it("keeps a ready parent until all requested sibling branches are ready", () => {
@@ -164,5 +186,24 @@ describe("LOD selection", () => {
       { minimumRefinementCoverage: 0.4 },
     );
     expect(visible).toHaveLength(4 * 8 + 4);
+  });
+
+  it("reveals a loaded refinement when that region fills the viewport", () => {
+    const grandchildren = children.flatMap((child) => childNodeIds(child.id));
+    const refinedParent = formatNodeId(children[0]!.id);
+    const ready = new Set([
+      formatNodeId(root.id),
+      ...children.map((child) => formatNodeId(child.id)),
+      ...grandchildren
+        .filter((node) => formatNodeId(ancestorNodeId(node, 1)) === refinedParent)
+        .map(formatNodeId),
+    ]);
+    const visible = resolveReadyLod(
+      root.id,
+      grandchildren,
+      (node) => ready.has(formatNodeId(node)),
+      { minimumRefinementCoverage: 0.4, weight: () => 0.4 },
+    );
+    expect(visible).toHaveLength(8 + 7);
   });
 });

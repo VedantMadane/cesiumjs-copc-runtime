@@ -1,0 +1,478 @@
+import "cesium/Build/Cesium/Widgets/widgets.css";
+import {
+  Cartesian2,
+  Cartesian3,
+  Cartographic,
+  Color,
+  createWorldTerrainAsync,
+  EllipsoidTerrainProvider,
+  HeadingPitchRange,
+  Math as CesiumMath,
+  Matrix4,
+  OpenStreetMapImageryProvider,
+  sampleTerrainMostDetailed,
+  ScreenSpaceEventType,
+  Transforms,
+  Viewer,
+  type ScreenSpaceEventHandler,
+} from "cesium";
+import { CopcEyeDomeLighting, CopcPointCloud, type CopcColorMode } from "@copc-runtime/cesium";
+import { IndexedDbRangeCache } from "@copc-runtime/core";
+import "./style.css";
+
+const sampleUrl = "https://s3.amazonaws.com/hobu-lidar/autzen-classified.copc.laz";
+const persistentCache = IndexedDbRangeCache.supported
+  ? new IndexedDbRangeCache({ maximumBytes: 512 * 1024 * 1024 })
+  : undefined;
+const viewer = new Viewer("cesium", {
+  animation: false,
+  baseLayer: false,
+  baseLayerPicker: false,
+  fullscreenButton: false,
+  geocoder: false,
+  homeButton: false,
+  infoBox: false,
+  navigationHelpButton: false,
+  sceneModePicker: false,
+  selectionIndicator: false,
+  timeline: false,
+});
+viewer.scene.backgroundColor = Color.fromCssColorString("#07100f");
+viewer.scene.globe.baseColor = Color.fromCssColorString("#18332e");
+viewer.scene.globe.showGroundAtmosphere = true;
+viewer.scene.globe.depthTestAgainstTerrain = true;
+const eyeDomeLighting = new CopcEyeDomeLighting(viewer.scene, { strength: 1, radius: 1 });
+
+const form = element<HTMLFormElement>("load-form");
+const urlInput = element<HTMLInputElement>("url");
+const status = element<HTMLOutputElement>("status");
+const color = element<HTMLSelectElement>("color");
+const filter = element<HTMLSelectElement>("filter");
+const baseMap = element<HTMLSelectElement>("base-map");
+const terrain = element<HTMLSelectElement>("terrain");
+const pointSize = element<HTMLInputElement>("point-size");
+const pointSizeValue = element<HTMLSpanElement>("point-size-value");
+const opacity = element<HTMLInputElement>("opacity");
+const opacityValue = element<HTMLSpanElement>("opacity-value");
+const cameraHeading = element<HTMLInputElement>("camera-heading");
+const cameraHeadingValue = element<HTMLSpanElement>("camera-heading-value");
+const cameraPitch = element<HTMLInputElement>("camera-pitch");
+const cameraPitchValue = element<HTMLSpanElement>("camera-pitch-value");
+const edl = element<HTMLInputElement>("edl");
+const visiblePoints = element<HTMLElement>("visible-points");
+const visibleNodes = element<HTMLElement>("visible-nodes");
+const network = element<HTMLElement>("network");
+const requests = element<HTMLElement>("requests");
+const logicalRanges = element<HTMLElement>("logical-ranges");
+const coalesced = element<HTMLElement>("coalesced");
+const cacheHits = element<HTMLElement>("cache-hits");
+const decodeTime = element<HTMLElement>("decode-time");
+const fpsOutput = element<HTMLElement>("fps");
+const firstPointOutput = element<HTMLElement>("first-point");
+urlInput.value = sampleUrl;
+
+let layer: CopcPointCloud | undefined;
+let loadStarted = 0;
+let firstPointMilliseconds: number | undefined;
+let frameCount = 0;
+let fpsWindowStarted = performance.now();
+let measuredFps = 0;
+let lastDiagnosticsUpdate = 0;
+let terrainMode: "ellipsoid" | "world" = "ellipsoid";
+let terrainRequest = 0;
+let spaceCameraActive = false;
+let cameraPointerId: number | undefined;
+let previousPointerX = 0;
+let previousPointerY = 0;
+let cameraOrbitPivot: Cartesian3 | undefined;
+let cameraOrbitHeading = 0;
+let cameraOrbitPitch = 0;
+let cameraOrbitRange = 0;
+const screenCenter = new Cartesian2();
+const pickedCenter = new Cartesian3();
+const pivotTransform = new Matrix4();
+const inversePivotTransform = new Matrix4();
+const cameraOffset = new Cartesian3();
+const localCameraOffset = new Cartesian3();
+
+setBaseMap(baseMap.value);
+
+window.addEventListener("keydown", (event) => {
+  if (event.code !== "Space" || event.repeat || isEditableTarget(event.target)) return;
+  event.preventDefault();
+  setSpaceCameraActive(true);
+});
+
+window.addEventListener("keyup", (event) => {
+  if (event.code !== "Space") return;
+  event.preventDefault();
+  setSpaceCameraActive(false);
+});
+
+window.addEventListener("blur", () => setSpaceCameraActive(false));
+
+viewer.scene.canvas.addEventListener("pointerdown", (event) => {
+  if (!spaceCameraActive || event.button !== 0) return;
+  const pivot = centerCameraPivot();
+  if (!pivot) return;
+  event.preventDefault();
+  const orbit = cameraOrbitFromPivot(pivot);
+  cameraOrbitPivot = pivot;
+  cameraOrbitHeading = orbit.heading;
+  cameraOrbitPitch = orbit.pitch;
+  cameraOrbitRange = orbit.range;
+  cameraPointerId = event.pointerId;
+  previousPointerX = event.clientX;
+  previousPointerY = event.clientY;
+  viewer.scene.canvas.setPointerCapture(event.pointerId);
+});
+
+viewer.scene.canvas.addEventListener("pointermove", (event) => {
+  if (event.pointerId !== cameraPointerId) return;
+  event.preventDefault();
+  const deltaX = event.clientX - previousPointerX;
+  const deltaY = event.clientY - previousPointerY;
+  previousPointerX = event.clientX;
+  previousPointerY = event.clientY;
+  const radiansPerPixel = 0.004;
+  cameraOrbitHeading = CesiumMath.zeroToTwoPi(
+    cameraOrbitHeading + deltaX * radiansPerPixel,
+  );
+  cameraOrbitPitch = CesiumMath.clamp(
+    cameraOrbitPitch - deltaY * radiansPerPixel,
+    CesiumMath.toRadians(-85),
+    CesiumMath.toRadians(-5),
+  );
+  applyCameraOrbit(
+    cameraOrbitPivot!,
+    cameraOrbitHeading,
+    cameraOrbitPitch,
+    cameraOrbitRange,
+  );
+  syncCameraAngleControls();
+});
+
+for (const eventName of ["pointerup", "pointercancel"] as const) {
+  viewer.scene.canvas.addEventListener(eventName, (event) => {
+    if (event.pointerId === cameraPointerId) endSpaceCameraDrag();
+  });
+}
+
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void load(urlInput.value);
+});
+
+color.addEventListener("change", () => {
+  if (layer) layer.colorBy = color.value as CopcColorMode;
+});
+
+filter.addEventListener("change", () => {
+  if (!layer) return;
+  const classifications: Record<string, number[] | undefined> = {
+    all: undefined,
+    ground: [2],
+    vegetation: [3, 4, 5],
+    building: [6],
+    water: [9],
+  };
+  const selected = classifications[filter.value];
+  layer.filter = selected ? { classifications: selected } : undefined;
+});
+
+baseMap.addEventListener("change", () => setBaseMap(baseMap.value));
+
+terrain.addEventListener("change", () => {
+  void setTerrain(terrain.value as "ellipsoid" | "world");
+});
+
+pointSize.addEventListener("input", () => {
+  pointSizeValue.textContent = `${pointSize.value} px`;
+  if (layer) layer.pointSize = Number(pointSize.value);
+});
+
+opacity.addEventListener("input", () => {
+  opacityValue.textContent = `${Math.round(Number(opacity.value) * 100)}%`;
+  if (layer) layer.opacity = Number(opacity.value);
+});
+
+for (const input of [cameraHeading, cameraPitch]) {
+  input.addEventListener("input", updateCameraAngleLabels);
+  // Apply after the thumb is released to avoid unnecessary LOD request churn.
+  input.addEventListener("change", applyCameraAngle);
+}
+
+edl.addEventListener("change", () => {
+  eyeDomeLighting.enabled = edl.checked;
+});
+
+viewer.scene.postRender.addEventListener(() => {
+  const now = performance.now();
+  frameCount += 1;
+  const fpsElapsed = now - fpsWindowStarted;
+  if (fpsElapsed >= 500) {
+    measuredFps = frameCount * 1_000 / fpsElapsed;
+    frameCount = 0;
+    fpsWindowStarted = now;
+  }
+  if (now - lastDiagnosticsUpdate < 250) return;
+  lastDiagnosticsUpdate = now;
+  if (!layer) return;
+  const stats = layer.statistics;
+  if (firstPointMilliseconds === undefined && stats.visiblePoints > 0) {
+    firstPointMilliseconds = now - loadStarted;
+  }
+  visiblePoints.textContent = stats.visiblePoints.toLocaleString();
+  visibleNodes.textContent = stats.visibleNodes.toLocaleString();
+  network.textContent = formatBytes(stats.networkBytes);
+  requests.textContent = stats.networkRequests.toLocaleString();
+  logicalRanges.textContent = stats.logicalRangeRequests.toLocaleString();
+  coalesced.textContent = stats.coalescedRangeRequests.toLocaleString();
+  cacheHits.textContent = (stats.rangeCacheHits + stats.persistentRangeCacheHits).toLocaleString();
+  decodeTime.textContent = `${stats.workerDecodeMilliseconds.toFixed(0)} ms`;
+  fpsOutput.textContent = measuredFps.toFixed(0);
+  firstPointOutput.textContent = firstPointMilliseconds === undefined
+    ? "—"
+    : `${firstPointMilliseconds.toFixed(0)} ms`;
+  if (layer.lastError) status.textContent = errorMessage(layer.lastError);
+});
+
+viewer.screenSpaceEventHandler.setInputAction(((movement: { position: Parameters<CopcPointCloud["pick"]>[1] }) => {
+  const point = layer?.pick(viewer.scene, movement.position);
+  if (!point) return;
+  void reportPickedPoint(point);
+}) as ScreenSpaceEventHandler.PositionedEventCallback, ScreenSpaceEventType.LEFT_CLICK);
+
+function setBaseMap(value: string): void {
+  viewer.imageryLayers.removeAll();
+  if (value === "osm") {
+    viewer.imageryLayers.addImageryProvider(new OpenStreetMapImageryProvider({
+      url: "https://tile.openstreetmap.org/",
+      maximumLevel: 19,
+    }));
+  }
+  viewer.scene.requestRender();
+}
+
+function setSpaceCameraActive(active: boolean): void {
+  spaceCameraActive = active;
+  // Normal drag moves the globe. While Space is held, our pointer handler
+  // changes only camera heading/pitch at the current position.
+  viewer.scene.screenSpaceCameraController.enableRotate = !active;
+  if (!active) endSpaceCameraDrag();
+  document.body.classList.toggle("space-camera", active);
+}
+
+function endSpaceCameraDrag(): void {
+  if (cameraPointerId !== undefined && viewer.scene.canvas.hasPointerCapture(cameraPointerId)) {
+    viewer.scene.canvas.releasePointerCapture(cameraPointerId);
+  }
+  cameraPointerId = undefined;
+  cameraOrbitPivot = undefined;
+}
+
+function syncCameraAngleControls(): void {
+  cameraHeading.value = String(Math.round(CesiumMath.toDegrees(viewer.camera.heading)) % 360);
+  cameraPitch.value = String(Math.round(CesiumMath.toDegrees(viewer.camera.pitch)));
+  updateCameraAngleLabels();
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement
+    || target instanceof HTMLSelectElement
+    || target instanceof HTMLTextAreaElement
+    || (target instanceof HTMLElement && target.isContentEditable);
+}
+
+function updateCameraAngleLabels(): void {
+  cameraHeadingValue.textContent = `${cameraHeading.value}°`;
+  cameraPitchValue.textContent = `${cameraPitch.value}°`;
+}
+
+function applyCameraAngle(): void {
+  if (!layer) return;
+  const pivot = centerCameraPivot() ?? layer.boundingSphere.center;
+  const range = Math.max(Cartesian3.distance(viewer.camera.positionWC, pivot), 1);
+  applyCameraOrbit(
+    pivot,
+    CesiumMath.toRadians(Number(cameraHeading.value)),
+    CesiumMath.toRadians(Number(cameraPitch.value)),
+    range,
+  );
+}
+
+function applyCameraOrbit(
+  pivot: Cartesian3,
+  heading: number,
+  pitch: number,
+  range: number,
+): void {
+  viewer.camera.lookAt(pivot, new HeadingPitchRange(heading, pitch, range));
+  // lookAt switches the camera into a target-relative reference frame. Restore
+  // world coordinates without changing the pose so regular pan/orbit controls
+  // remain available after applying the sliders.
+  viewer.camera.lookAtTransform(Matrix4.IDENTITY);
+}
+
+function centerCameraPivot(): Cartesian3 | undefined {
+  const canvas = viewer.scene.canvas;
+  screenCenter.x = canvas.clientWidth * 0.5;
+  screenCenter.y = canvas.clientHeight * 0.5;
+
+  if (viewer.scene.pickPositionSupported) {
+    const position = viewer.scene.pickPosition(screenCenter, pickedCenter);
+    if (position) return Cartesian3.clone(position);
+  }
+
+  const ray = viewer.camera.getPickRay(screenCenter);
+  if (ray) {
+    const position = viewer.scene.globe.pick(ray, viewer.scene, pickedCenter);
+    if (position) return Cartesian3.clone(position);
+  }
+  return layer ? Cartesian3.clone(layer.boundingSphere.center) : undefined;
+}
+
+function cameraOrbitFromPivot(pivot: Cartesian3): HeadingPitchRange {
+  const transform = Transforms.eastNorthUpToFixedFrame(pivot, undefined, pivotTransform);
+  Matrix4.inverseTransformation(transform, inversePivotTransform);
+  Cartesian3.subtract(viewer.camera.positionWC, pivot, cameraOffset);
+  Matrix4.multiplyByPointAsVector(inversePivotTransform, cameraOffset, localCameraOffset);
+  const range = Math.max(Cartesian3.magnitude(localCameraOffset), 1);
+  const pitch = Math.asin(CesiumMath.clamp(-localCameraOffset.z / range, -1, 1));
+  const heading = CesiumMath.zeroToTwoPi(Math.atan2(
+    -localCameraOffset.x,
+    -localCameraOffset.y,
+  ));
+  return new HeadingPitchRange(heading, pitch, range);
+}
+
+async function setTerrain(value: "ellipsoid" | "world"): Promise<void> {
+  const request = ++terrainRequest;
+  terrain.disabled = true;
+  try {
+    if (value === "world") {
+      status.textContent = "Loading Cesium World Terrain…";
+      const provider = await createWorldTerrainAsync({ requestVertexNormals: true });
+      if (request !== terrainRequest) return;
+      viewer.terrainProvider = provider;
+      viewer.scene.globe.enableLighting = true;
+    } else {
+      viewer.terrainProvider = new EllipsoidTerrainProvider();
+      viewer.scene.globe.enableLighting = false;
+    }
+    terrainMode = value;
+    let terrainStatus = value === "world"
+      ? "Cesium World Terrain enabled"
+      : "WGS84 ellipsoid h=0 reference enabled (no physical terrain)";
+    if (value === "world" && layer) {
+      const center = Cartographic.fromCartesian(layer.boundingSphere.center);
+      const sampled = (await sampleTerrainMostDetailed(viewer.terrainProvider, [center]))[0];
+      if (sampled?.height !== undefined) {
+        terrainStatus += ` · center surface ${sampled.height.toFixed(2)} m`;
+      }
+    }
+    status.textContent = terrainStatus;
+    if (layer) void focusLayer(0.8);
+  } catch (error) {
+    if (request !== terrainRequest) return;
+    terrain.value = "ellipsoid";
+    terrainMode = "ellipsoid";
+    viewer.terrainProvider = new EllipsoidTerrainProvider();
+    status.textContent = `Terrain unavailable: ${errorMessage(error)}`;
+  } finally {
+    if (request === terrainRequest) terrain.disabled = false;
+  }
+}
+
+async function reportPickedPoint(point: NonNullable<ReturnType<CopcPointCloud["pick"]>>): Promise<void> {
+  const classification = point.attributes.Classification ?? "—";
+  status.textContent = `${point.node} · point ${point.height.toFixed(2)} m · sampling surface…`;
+  try {
+    const surfaceHeight = terrainMode === "world"
+      ? (await sampleTerrainMostDetailed(viewer.terrainProvider, [
+          Cartographic.fromDegrees(point.longitude, point.latitude),
+        ]))[0]?.height
+      : 0;
+    const comparison = surfaceHeight === undefined
+      ? "surface unavailable"
+      : `surface ${surfaceHeight.toFixed(2)} m · Δ ${(point.height - surfaceHeight).toFixed(2)} m`;
+    status.textContent = `${point.node} · point ${point.height.toFixed(2)} m · ${comparison} · class ${classification}`;
+  } catch (error) {
+    status.textContent = `${point.node} · point ${point.height.toFixed(2)} m · ${errorMessage(error)}`;
+  }
+}
+
+async function load(url: string): Promise<void> {
+  loadStarted = performance.now();
+  firstPointMilliseconds = undefined;
+  firstPointOutput.textContent = "—";
+  status.textContent = "Checking byte-range support…";
+  setBusy(true);
+  try {
+    const diagnosis = await CopcPointCloud.validateUrl(url);
+    if (!diagnosis.supportsRanges) throw new Error("The server does not support HTTP byte ranges.");
+    if (!diagnosis.copcValid) throw new Error(diagnosis.error ?? "The URL is not a valid COPC file.");
+    if (layer) {
+      viewer.scene.primitives.remove(layer);
+      layer = undefined;
+    }
+    status.textContent = `Opening ${formatBytes(diagnosis.contentLength ?? 0)} COPC…`;
+    layer = await CopcPointCloud.fromUrl(url, {
+      pointBudget: 1_500_000,
+      maximumScreenSpaceError: 2,
+      cacheSize: 384 * 1024 * 1024,
+      decodedCacheSize: 576 * 1024 * 1024,
+      range: {
+        compressedCacheSize: 128 * 1024 * 1024,
+        ...(persistentCache === undefined ? {} : { persistentCache }),
+      },
+      pointSize: Number(pointSize.value),
+      opacity: Number(opacity.value),
+      colorBy: color.value as CopcColorMode,
+    });
+    viewer.scene.primitives.add(layer);
+    await focusLayer(1.2);
+    status.textContent = "Streaming visible nodes";
+  } catch (error) {
+    status.textContent = errorMessage(error);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function focusLayer(duration: number): void {
+  if (!layer) return;
+  viewer.camera.flyToBoundingSphere(layer.boundingSphere, {
+    duration,
+    offset: new HeadingPitchRange(
+      CesiumMath.toRadians(Number(cameraHeading.value)),
+      CesiumMath.toRadians(Number(cameraPitch.value)),
+      0,
+    ),
+  });
+}
+
+function setBusy(busy: boolean): void {
+  const button = form.querySelector("button")!;
+  button.disabled = busy;
+  button.textContent = busy ? "Loading…" : "Load";
+}
+
+function element<T extends HTMLElement>(id: string): T {
+  const value = document.getElementById(id);
+  if (!value) throw new Error(`Missing element #${id}`);
+  return value as T;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / 1024 ** unit).toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+void load(sampleUrl);

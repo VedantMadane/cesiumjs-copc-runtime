@@ -1,0 +1,27 @@
+{
+  "name": "copc-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "test": "vitest run",
+    "demo": "npm run dev --workspace @copc-runtime/demo",
+    "demo:build": "npm run build --workspace @copc-runtime/demo",
+    "benchmark": "npm run build --workspace @copc-runtime/benchmark && node packages/benchmark/dist/cli.js",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

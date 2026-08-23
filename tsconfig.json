@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/copc-core" },
+    { "path": "./packages/copc-runtime" },
+    { "path": "./packages/copc-worker" },
+    { "path": "./packages/cesium-copc" },
+    { "path": "./packages/benchmark" },
+    { "path": "./packages/copc-analysis" }
+  ]
+}

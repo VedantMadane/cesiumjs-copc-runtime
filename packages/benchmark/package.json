@@ -1,0 +1,13 @@
+{
+  "name": "@copc-runtime/benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "tsc -b" },
+  "dependencies": {
+    "@copc-runtime/core": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.17.2"
+  }
+}

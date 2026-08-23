@@ -1,7 +1,7 @@
 export interface RequestOptions {
   readonly priority?: number;
   readonly signal?: AbortSignal;
-  /** Stable identifier used to update the priority of pending work. */
+  /** Stable identifier used to update priority as the view changes. */
   readonly key?: string;
 }
 

@@ -29,6 +29,15 @@ class FakeWorker implements WorkerLike {
         statistics: { decodedNodes: 1, decodeMilliseconds: 12 },
       }));
     }
+    if (message.type === "filter") {
+      const node: PointCloudNode = {
+        ...message.node,
+        pointCount: 0,
+        positions: new Float64Array(),
+        attributes: {},
+      };
+      queueMicrotask(() => this.respond({ type: "success", id: message.id, node }));
+    }
   }
 
   terminate(): void { this.terminated = true; }
@@ -101,6 +110,28 @@ describe("CopcDecodeWorkerPool", () => {
     controller.abort(new DOMException("obsolete", "AbortError"));
     await expect(request).rejects.toMatchObject({ name: "AbortError" });
     expect(worker.requests.some((message) => message.type === "cancel")).toBe(true);
+    pool.destroy();
+  });
+
+  it("filters decoded nodes without transferring ownership of the source", async () => {
+    const worker = new FakeWorker();
+    const pool = await CopcDecodeWorkerPool.create({
+      metadata,
+      workerCount: 1,
+      workerFactory: () => worker,
+    });
+    const source: PointCloudNode = {
+      id: { depth: 0, x: 0, y: 0, z: 0 },
+      pointCount: 1,
+      positions: new Float64Array([1, 2, 3]),
+      attributes: { Classification: new Uint8Array([2]) },
+    };
+
+    const filtered = await pool.filterNode(source, { classifications: [6] });
+
+    expect(filtered.pointCount).toBe(0);
+    expect(source.positions.byteLength).toBe(24);
+    expect(worker.requests.some((message) => message.type === "filter")).toBe(true);
     pool.destroy();
   });
 });

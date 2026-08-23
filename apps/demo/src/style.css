@@ -12,18 +12,218 @@ body { overflow: hidden; }
 #cesium { position: fixed; inset: 0; }
 .cesium-viewer-bottom { display: none; }
 
+#camera-focus {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(233, 255, 248, 0.42);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  transition: opacity 160ms ease;
+  box-shadow: 0 0 12px rgba(7, 16, 15, 0.5);
+}
+
+#camera-focus.has-target { opacity: 0.72; }
+
+#camera-focus::before,
+#camera-focus::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  content: "";
+  background: rgba(233, 255, 248, 0.58);
+  transform: translate(-50%, -50%);
+}
+
+#camera-focus::before { width: 38px; height: 1px; }
+#camera-focus::after { width: 1px; height: 38px; }
+
+.camera-focus-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #68f4c4;
+  transform: translate(-50%, -50%);
+}
+
+#camera-focus-label {
+  position: absolute;
+  top: 35px;
+  left: 50%;
+  color: rgba(233, 255, 248, 0.7);
+  font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 4px #07100f;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+#camera-focus.refining .camera-focus-core {
+  animation: focus-pulse 1.35s ease-out infinite;
+}
+
+body.detail-focus-active #camera-focus.has-target { opacity: 0.24; }
+
+#detail-focus {
+  position: fixed;
+  z-index: 1;
+  width: 76px;
+  height: 76px;
+  border: 1px solid rgba(104, 244, 196, 0.56);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.82);
+  transition: opacity 160ms ease, transform 220ms ease;
+  box-shadow: inset 0 0 24px rgba(104, 244, 196, 0.08), 0 0 18px rgba(104, 244, 196, 0.08);
+}
+
+#detail-focus.active {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+#streaming-status {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 7px 11px;
+  border: 1px solid rgba(151, 255, 220, 0.16);
+  border-radius: 999px;
+  color: #bcd0ca;
+  background: rgba(7, 16, 15, 0.76);
+  backdrop-filter: blur(12px);
+  font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  pointer-events: none;
+}
+
+#streaming-status[hidden] { display: none; }
+.streaming-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #68f4c4;
+  box-shadow: 0 0 0 0 rgba(104, 244, 196, 0.44);
+  animation: streaming-pulse 1.35s ease-out infinite;
+}
+
+.camera-tools {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 2;
+  width: 236px;
+}
+
+.camera-help,
+.camera-angle-panel {
+  display: grid;
+  padding: 11px 13px;
+  border: 1px solid rgba(151, 255, 220, 0.18);
+  border-radius: 12px;
+  color: #a7bdb6;
+  background: rgba(7, 16, 15, 0.78);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.camera-help {
+  gap: 5px;
+  pointer-events: none;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.camera-angle-panel {
+  gap: 13px;
+  margin-top: 8px;
+  padding-block: 13px;
+}
+
+.camera-angle-panel label span {
+  float: right;
+  color: #68f4c4;
+  font-weight: 500;
+}
+
+.camera-angle-panel input[type="range"] { margin-top: 10px; }
+
+.camera-help strong {
+  color: #e9fff8;
+  font-size: 12px;
+}
+
+.camera-help kbd {
+  display: inline-block;
+  min-width: 45px;
+  margin-right: 3px;
+  padding: 3px 7px;
+  border: 1px solid #3b5b52;
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  color: #68f4c4;
+  background: #0d1d1a;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: center;
+}
+
+body.space-camera .camera-help {
+  border-color: rgba(104, 244, 196, 0.72);
+  background: rgba(13, 36, 31, 0.94);
+  transform: translateY(2px);
+}
+
+@keyframes streaming-pulse {
+  65%, 100% { box-shadow: 0 0 0 6px rgba(104, 244, 196, 0); }
+}
+
+@keyframes focus-pulse {
+  65%, 100% { box-shadow: 0 0 0 10px rgba(104, 244, 196, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #detail-focus { transition: none; }
+  #camera-focus { transition: none; }
+  .streaming-dot, #camera-focus.refining .camera-focus-core { animation: none; }
+}
+
 .panel {
   position: fixed;
   top: 24px;
   left: 24px;
+  z-index: 2;
   width: min(430px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
   padding: 26px;
   border: 1px solid rgba(151, 255, 220, 0.2);
   border-radius: 18px;
   background: rgba(7, 16, 15, 0.88);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.46);
   backdrop-filter: blur(18px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(104, 244, 196, 0.38) transparent;
+  scrollbar-width: thin;
 }
+
+.panel::-webkit-scrollbar { width: 7px; }
+.panel::-webkit-scrollbar-track { background: transparent; }
+.panel::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(104, 244, 196, 0.3); }
 
 .eyebrow {
   color: #68f4c4;
@@ -65,9 +265,29 @@ output { display: block; min-height: 18px; margin-top: 8px; color: #68f4c4; font
 .controls select { margin-top: 7px; padding: 8px; }
 .controls label span { float: right; color: #68f4c4; font-weight: 500; }
 input[type="range"] { width: 100%; margin: 14px 0 0; accent-color: #68f4c4; }
+.performance-settings {
+  grid-column: 1 / -1;
+  border: 1px solid #20352f;
+  border-radius: 10px;
+  background: rgba(13, 29, 26, 0.55);
+}
+.performance-settings summary {
+  padding: 10px 12px;
+  color: #bcd0ca;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+.performance-settings[open] summary { border-bottom: 1px solid #20352f; }
+.performance-settings summary::marker { color: #68f4c4; }
+.performance-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 13px 12px; }
+.performance-controls label span { float: right; color: #68f4c4; font-weight: 500; }
+.range-scale { display: flex; justify-content: space-between; margin-top: 2px; color: #587069; font-size: 9px; }
+.controls .range-scale span { float: none; color: inherit; font-weight: inherit; }
 .toggle { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; }
 .toggle input { width: 18px; height: 18px; margin: 0; accent-color: #68f4c4; }
-.surface-note, .camera-note { grid-column: 1 / -1; color: #708981; font-size: 10px; line-height: 1.4; }
+.surface-note { grid-column: 1 / -1; color: #708981; font-size: 10px; line-height: 1.4; }
 body.space-camera #cesium canvas { cursor: grabbing; }
 
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px 6px; margin: 0; border-top: 1px solid #20352f; padding-top: 17px; }
@@ -76,9 +296,45 @@ body.space-camera #cesium canvas { cursor: grabbing; }
 .stats dd { margin: 5px 0 0; overflow: hidden; color: #e9fff8; font: 600 13px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; }
 
 @media (max-width: 600px) {
-  .panel { top: 12px; left: 12px; width: calc(100vw - 24px); padding: 18px; }
+  .panel {
+    top: 12px;
+    left: 12px;
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+    padding: 18px;
+  }
   .panel header p { display: none; }
   h1 { margin-bottom: 18px; font-size: 28px; }
   .controls { margin: 16px 0; }
   .controls { grid-template-columns: 1fr 1fr; }
+  .performance-controls { grid-template-columns: 1fr; }
+  .camera-tools {
+    top: auto;
+    right: 12px;
+    bottom: 52px;
+    width: min(236px, calc(100vw - 24px));
+  }
+  .camera-help { display: none; }
+  .camera-angle-panel { margin-top: 0; }
+  #streaming-status { right: 12px; bottom: 12px; }
+}
+
+@media (max-height: 820px) and (min-width: 601px) {
+  .panel {
+    top: 12px;
+    left: 12px;
+    width: min(400px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    padding: 20px;
+  }
+
+  .panel header p { display: none; }
+  h1 { margin: 8px 0 16px; font-size: 30px; }
+  .controls { gap: 10px; margin: 16px 0; }
+  .stats { gap: 12px 6px; padding-top: 14px; }
+}
+
+@media (max-height: 560px) and (min-width: 601px) {
+  .camera-tools { top: 10px; right: 10px; }
+  .camera-angle-panel { gap: 8px; padding-block: 10px; }
 }

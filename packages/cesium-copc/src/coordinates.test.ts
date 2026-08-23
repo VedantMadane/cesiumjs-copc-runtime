@@ -12,7 +12,7 @@ describe("coordinate transformer", () => {
     expect(cartographic.height).toBeCloseTo(123, 4);
   });
 
-  it("supports compound projected CRS and converts its vertical unit", () => {
+  it("supports compound projected CRS and converts its vertical unit without guessing a geoid", () => {
     const compoundCrs = `COMPD_CS["NAD83 / Oregon GIC Lambert (ft) + NAVD88 height (ftUS)",
       PROJCS["NAD83 / Oregon GIC Lambert (ft)",
         GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101]],
@@ -30,22 +30,26 @@ describe("coordinate transformer", () => {
     expect(CesiumMath.toDegrees(cartographic.longitude)).toBeLessThan(-116);
     expect(CesiumMath.toDegrees(cartographic.latitude)).toBeGreaterThan(41);
     expect(CesiumMath.toDegrees(cartographic.latitude)).toBeLessThan(47);
-    const latitude = CesiumMath.toDegrees(cartographic.latitude);
-    const longitude = CesiumMath.toDegrees(cartographic.longitude);
-    expect(cartographic.height).toBeCloseTo(
-      30.4800609601219 + meanSeaLevel(latitude, longitude),
-      4,
-    );
+    expect(cartographic.height).toBeCloseTo(30.4800609601219, 4);
   });
 
-  it("allows automatic geoid correction to be disabled", () => {
+  it("applies EGM96 only when the vertical datum is explicit", () => {
     const compoundCrs = `COMPD_CS["test",GEOGCS["WGS 84",DATUM["WGS_1984",
       SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],
       UNIT["degree",0.0174532925199433]],VERT_CS["NAVD88 height",
       VERT_DATUM["NAVD88",2005],UNIT["metre",1],AXIS["Gravity-related height",UP]]]`;
     const cartographic = Cartographic.fromCartesian(
-      createCoordinateTransformer(compoundCrs, { geoidModel: "none" })(-123, 44, 100),
+      createCoordinateTransformer(compoundCrs, {
+        verticalDatum: { type: "geoid", model: "egm96" },
+      })(-123, 44, 100),
     );
-    expect(cartographic.height).toBeCloseTo(100, 4);
+    expect(cartographic.height).toBeCloseTo(100 + meanSeaLevel(44, -123), 4);
+  });
+
+  it("rejects ambiguous legacy and vertical datum options", () => {
+    expect(() => createCoordinateTransformer("EPSG:4326", {
+      verticalDatum: { type: "ellipsoid" },
+      geoidModel: "none",
+    })).toThrow(/either verticalDatum/);
   });
 });

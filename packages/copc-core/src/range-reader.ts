@@ -73,6 +73,7 @@ export class HttpRangeReader {
   #persistentCacheHits = 0;
   #coalescedRequests = 0;
   #bytesReceived = 0;
+  #networkMilliseconds = 0;
   #contentLength: number | undefined;
 
   constructor(url: string, options: RangeReaderOptions = {}) {
@@ -103,6 +104,7 @@ export class HttpRangeReader {
   get persistentCacheHitCount(): number { return this.#persistentCacheHits; }
   get coalescedRequestCount(): number { return this.#coalescedRequests; }
   get bytesReceived(): number { return this.#bytesReceived; }
+  get networkMilliseconds(): number { return this.#networkMilliseconds; }
   get cachedBytes(): number { return this.#cache.byteLength; }
   get contentLength(): number | undefined { return this.#contentLength; }
 
@@ -222,27 +224,32 @@ export class HttpRangeReader {
   async #fetchRange(begin: number, end: number, signal?: AbortSignal): Promise<Uint8Array> {
     const headers = new Headers(this.#headers);
     headers.set("Range", `bytes=${begin}-${end - 1}`);
-    const response = await this.#fetch(this.#url, {
-      method: "GET",
-      headers,
-      ...(signal === undefined ? {} : { signal }),
-    });
-    this.#requests += 1;
-    if (response.status !== 206) {
-      throw new Error(`Server did not honor byte range ${begin}-${end - 1}: HTTP ${response.status}`);
+    const started = performance.now();
+    try {
+      const response = await this.#fetch(this.#url, {
+        method: "GET",
+        headers,
+        ...(signal === undefined ? {} : { signal }),
+      });
+      this.#requests += 1;
+      if (response.status !== 206) {
+        throw new Error(`Server did not honor byte range ${begin}-${end - 1}: HTTP ${response.status}`);
+      }
+      const contentRange = response.headers.get("content-range");
+      if (contentRange && !contentRange.startsWith(`bytes ${begin}-`)) {
+        throw new Error(`Unexpected Content-Range response: ${contentRange}`);
+      }
+      const total = contentRange?.match(/\/(\d+)$/)?.[1];
+      if (total) this.#contentLength = Number(total);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength !== end - begin) {
+        throw new Error(`Expected ${end - begin} bytes, received ${bytes.byteLength}`);
+      }
+      this.#bytesReceived += bytes.byteLength;
+      return bytes;
+    } finally {
+      this.#networkMilliseconds += performance.now() - started;
     }
-    const contentRange = response.headers.get("content-range");
-    if (contentRange && !contentRange.startsWith(`bytes ${begin}-`)) {
-      throw new Error(`Unexpected Content-Range response: ${contentRange}`);
-    }
-    const total = contentRange?.match(/\/(\d+)$/)?.[1];
-    if (total) this.#contentLength = Number(total);
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength !== end - begin) {
-      throw new Error(`Expected ${end - begin} bytes, received ${bytes.byteLength}`);
-    }
-    this.#bytesReceived += bytes.byteLength;
-    return bytes;
   }
 
   #abortRequest(request: PendingRange, reason: unknown): void {

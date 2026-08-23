@@ -1,6 +1,7 @@
 import type {
   CompressedPointCloudNode,
   CopcDecodingMetadata,
+  PointCloudNodeFilter,
   PointCloudNode,
 } from "@copc-runtime/core";
 import type { DecoderWorkerRequest, DecoderWorkerResponse, WorkerStatistics } from "./protocol.js";
@@ -29,7 +30,8 @@ interface PendingRequest {
 
 type RpcRequest =
   | Omit<Extract<DecoderWorkerRequest, { type: "initialize" }>, "id">
-  | Omit<Extract<DecoderWorkerRequest, { type: "load" }>, "id">;
+  | Omit<Extract<DecoderWorkerRequest, { type: "load" }>, "id">
+  | Omit<Extract<DecoderWorkerRequest, { type: "filter" }>, "id">;
 
 class WorkerClient {
   readonly #worker: WorkerLike;
@@ -65,6 +67,27 @@ class WorkerClient {
         node: response.node,
         statistics: response.statistics ?? { decodedNodes: 0, decodeMilliseconds: 0 },
       };
+    } finally {
+      this.active -= 1;
+    }
+  }
+
+  async filterNode(
+    node: PointCloudNode,
+    filter: PointCloudNodeFilter | undefined,
+    signal?: AbortSignal,
+  ): Promise<PointCloudNode> {
+    this.active += 1;
+    try {
+      const response = await this.#request({
+        type: "filter",
+        node,
+        ...(filter === undefined ? {} : { filter }),
+      }, signal);
+      if (response.type !== "success" || !response.node) {
+        throw new Error("Decoder worker returned an empty filtered node");
+      }
+      return response.node;
     } finally {
       this.active -= 1;
     }
@@ -166,6 +189,17 @@ export class CopcDecodeWorkerPool {
     this.#decodedNodes += result.statistics.decodedNodes;
     this.#decodeMilliseconds += result.statistics.decodeMilliseconds;
     return result.node;
+  }
+
+  async filterNode(
+    node: PointCloudNode,
+    filter: PointCloudNodeFilter | undefined,
+    signal?: AbortSignal,
+  ): Promise<PointCloudNode> {
+    if (this.#destroyed) throw new Error("Decoder worker pool has been destroyed");
+    const worker = this.#workers.reduce((best, candidate) =>
+      candidate.active < best.active ? candidate : best);
+    return worker.filterNode(node, filter, signal);
   }
 
   get statistics(): WorkerStatistics {

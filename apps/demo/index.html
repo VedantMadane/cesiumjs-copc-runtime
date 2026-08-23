@@ -9,10 +9,33 @@
   <body>
     <main id="app">
       <div id="cesium" aria-label="Cesium 3D point cloud viewer"></div>
+      <div id="camera-focus" aria-hidden="true">
+        <span class="camera-focus-core"></span>
+        <span id="camera-focus-label"></span>
+      </div>
+      <div id="detail-focus" aria-hidden="true"></div>
+      <div id="streaming-status" aria-live="polite" hidden>
+        <span class="streaming-dot" aria-hidden="true"></span>
+        <span id="streaming-status-text">Refining view</span>
+      </div>
+      <aside class="camera-tools" aria-label="카메라 조작">
+        <div class="camera-help">
+          <strong>카메라 각도 조절</strong>
+          <span><kbd>Space</kbd> 누른 채 왼쪽 드래그</span>
+        </div>
+        <div class="camera-angle-panel">
+          <label>Heading <span id="camera-heading-value">0°</span>
+            <input id="camera-heading" type="range" min="0" max="359" step="1" value="0" />
+          </label>
+          <label>Pitch <span id="camera-pitch-value">-29°</span>
+            <input id="camera-pitch" type="range" min="-85" max="-5" step="1" value="-29" />
+          </label>
+        </div>
+      </aside>
       <section class="panel" aria-label="COPC controls">
         <header>
           <span class="eyebrow">COPC RUNTIME</span>
-          <h1>Cloud-native point clouds<br />on the globe.</h1>
+          <h1>COPC, streamed directly<br />into CesiumJS.</h1>
           <p>변환 없이 COPC byte range를 직접 읽고, 카메라에 필요한 octree node만 표시합니다.</p>
         </header>
         <form id="load-form">
@@ -59,27 +82,35 @@
           <label>Opacity <span id="opacity-value">100%</span>
             <input id="opacity" type="range" min="0.1" max="1" step="0.05" value="1" />
           </label>
-          <label>Camera heading <span id="camera-heading-value">0°</span>
-            <input id="camera-heading" type="range" min="0" max="359" step="1" value="0" />
-          </label>
-          <label>Camera pitch <span id="camera-pitch-value">-29°</span>
-            <input id="camera-pitch" type="range" min="-85" max="-5" step="1" value="-29" />
-          </label>
+          <details class="performance-settings">
+            <summary>Streaming / Performance</summary>
+            <div class="performance-controls">
+              <label>Detail quality <span id="sse-value">1.5 SSE</span>
+                <input id="sse" type="range" min="0.5" max="8" step="0.25" value="1.5" />
+                <small class="range-scale"><span>Detailed</span><span>Fast</span></small>
+              </label>
+              <label>Point limit <span id="point-budget-value">1.50 M</span>
+                <input id="point-budget" type="range" min="250000" max="5000000" step="250000" value="1500000" />
+                <small class="range-scale"><span>250 K</span><span>5 M</span></small>
+              </label>
+            </div>
+          </details>
           <label class="toggle">Eye-dome lighting
             <input id="edl" type="checkbox" checked />
           </label>
-          <small class="surface-note">Ellipsoid는 실제 지면이 아닌 높이 0 기준면입니다. 실제 지표 비교에는 World Terrain을 사용하세요. NAVD88 등 정표고는 EGM96 geoid 격자로 WGS84 타원체고에 자동 보정됩니다.</small>
-          <small class="camera-note">기본 드래그는 지도 이동, Space + 왼쪽 드래그는 카메라 heading/pitch 조작입니다.</small>
+          <small class="surface-note">Ellipsoid는 실제 지면이 아닌 높이 0 기준면입니다. 실제 지표 비교에는 World Terrain을 사용하세요. Geoid 보정은 수직 기준이 명확할 때만 별도로 설정됩니다.</small>
         </div>
         <dl class="stats">
           <div><dt>Visible points</dt><dd id="visible-points">—</dd></div>
           <div><dt>Visible nodes</dt><dd id="visible-nodes">—</dd></div>
           <div><dt>Network</dt><dd id="network">—</dd></div>
+          <div><dt>HTTP total</dt><dd id="network-time">—</dd></div>
           <div><dt>Requests</dt><dd id="requests">—</dd></div>
           <div><dt>Logical ranges</dt><dd id="logical-ranges">—</dd></div>
           <div><dt>Coalesced</dt><dd id="coalesced">—</dd></div>
           <div><dt>Cache hits</dt><dd id="cache-hits">—</dd></div>
-          <div><dt>Worker decode</dt><dd id="decode-time">—</dd></div>
+          <div><dt>Decode total</dt><dd id="decode-time">—</dd></div>
+          <div><dt>Build total</dt><dd id="build-time">—</dd></div>
           <div><dt>FPS</dt><dd id="fps">—</dd></div>
           <div><dt>First point</dt><dd id="first-point">—</dd></div>
         </dl>

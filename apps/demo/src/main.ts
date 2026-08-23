@@ -21,6 +21,10 @@ import { IndexedDbRangeCache } from "@copc-runtime/core";
 import "./style.css";
 
 const sampleUrl = "https://s3.amazonaws.com/hobu-lidar/autzen-classified.copc.laz";
+// Keep interaction smooth while the camera moves, then spend more of each
+// frame converting and uploading decoded points as soon as movement settles.
+const movingUploadBudgetMilliseconds = 2;
+const idleUploadBudgetMilliseconds = 8;
 const persistentCache = IndexedDbRangeCache.supported
   ? new IndexedDbRangeCache({ maximumBytes: 512 * 1024 * 1024 })
   : undefined;
@@ -54,6 +58,10 @@ const pointSize = element<HTMLInputElement>("point-size");
 const pointSizeValue = element<HTMLSpanElement>("point-size-value");
 const opacity = element<HTMLInputElement>("opacity");
 const opacityValue = element<HTMLSpanElement>("opacity-value");
+const sse = element<HTMLInputElement>("sse");
+const sseValue = element<HTMLSpanElement>("sse-value");
+const pointBudget = element<HTMLInputElement>("point-budget");
+const pointBudgetValue = element<HTMLSpanElement>("point-budget-value");
 const cameraHeading = element<HTMLInputElement>("camera-heading");
 const cameraHeadingValue = element<HTMLSpanElement>("camera-heading-value");
 const cameraPitch = element<HTMLInputElement>("camera-pitch");
@@ -62,13 +70,20 @@ const edl = element<HTMLInputElement>("edl");
 const visiblePoints = element<HTMLElement>("visible-points");
 const visibleNodes = element<HTMLElement>("visible-nodes");
 const network = element<HTMLElement>("network");
+const networkTime = element<HTMLElement>("network-time");
 const requests = element<HTMLElement>("requests");
 const logicalRanges = element<HTMLElement>("logical-ranges");
 const coalesced = element<HTMLElement>("coalesced");
 const cacheHits = element<HTMLElement>("cache-hits");
 const decodeTime = element<HTMLElement>("decode-time");
+const buildTime = element<HTMLElement>("build-time");
 const fpsOutput = element<HTMLElement>("fps");
 const firstPointOutput = element<HTMLElement>("first-point");
+const cameraFocus = element<HTMLElement>("camera-focus");
+const cameraFocusLabel = element<HTMLElement>("camera-focus-label");
+const detailFocus = element<HTMLElement>("detail-focus");
+const streamingStatus = element<HTMLElement>("streaming-status");
+const streamingStatusText = element<HTMLElement>("streaming-status-text");
 urlInput.value = sampleUrl;
 
 let layer: CopcPointCloud | undefined;
@@ -88,6 +103,11 @@ let cameraOrbitPivot: Cartesian3 | undefined;
 let cameraOrbitHeading = 0;
 let cameraOrbitPitch = 0;
 let cameraOrbitRange = 0;
+let detailFocusTimer: ReturnType<typeof setTimeout> | undefined;
+let streamingHideTimer: ReturnType<typeof setTimeout> | undefined;
+let cameraMoving = false;
+let cameraFocusNeedsDepthUpdate = true;
+let previousLoadingNodes = 0;
 const screenCenter = new Cartesian2();
 const pickedCenter = new Cartesian3();
 const pivotTransform = new Matrix4();
@@ -96,6 +116,24 @@ const cameraOffset = new Cartesian3();
 const localCameraOffset = new Cartesian3();
 
 setBaseMap(baseMap.value);
+
+viewer.scene.canvas.addEventListener("pointermove", scheduleDetailFocus);
+viewer.scene.canvas.addEventListener("pointerleave", resetDetailFocus);
+viewer.scene.canvas.addEventListener("pointerdown", resetDetailFocus);
+viewer.scene.canvas.addEventListener("wheel", resetDetailFocus, { passive: true });
+viewer.camera.changed.addEventListener(() => {
+  resetDetailFocus();
+  cameraFocusNeedsDepthUpdate = true;
+});
+viewer.camera.moveStart.addEventListener(() => {
+  cameraMoving = true;
+  if (layer) layer.uploadTimeBudgetMilliseconds = movingUploadBudgetMilliseconds;
+});
+viewer.camera.moveEnd.addEventListener(() => {
+  cameraMoving = false;
+  if (layer) layer.uploadTimeBudgetMilliseconds = idleUploadBudgetMilliseconds;
+  cameraFocusNeedsDepthUpdate = true;
+});
 
 window.addEventListener("keydown", (event) => {
   if (event.code !== "Space" || event.repeat || isEditableTarget(event.target)) return;
@@ -196,6 +234,18 @@ opacity.addEventListener("input", () => {
   if (layer) layer.opacity = Number(opacity.value);
 });
 
+sse.addEventListener("input", () => {
+  const value = Number(sse.value);
+  sseValue.textContent = `${value.toFixed(value % 1 === 0 ? 0 : 2)} SSE`;
+  if (layer) layer.maximumScreenSpaceError = value;
+});
+
+pointBudget.addEventListener("input", () => {
+  const value = Number(pointBudget.value);
+  pointBudgetValue.textContent = `${(value / 1_000_000).toFixed(2)} M`;
+  if (layer) layer.pointBudget = value;
+});
+
 for (const input of [cameraHeading, cameraPitch]) {
   input.addEventListener("input", updateCameraAngleLabels);
   // Apply after the thumb is released to avoid unnecessary LOD request churn.
@@ -225,17 +275,90 @@ viewer.scene.postRender.addEventListener(() => {
   visiblePoints.textContent = stats.visiblePoints.toLocaleString();
   visibleNodes.textContent = stats.visibleNodes.toLocaleString();
   network.textContent = formatBytes(stats.networkBytes);
+  networkTime.textContent = `${stats.networkMilliseconds.toFixed(0)} ms`;
   requests.textContent = stats.networkRequests.toLocaleString();
   logicalRanges.textContent = stats.logicalRangeRequests.toLocaleString();
   coalesced.textContent = stats.coalescedRangeRequests.toLocaleString();
   cacheHits.textContent = (stats.rangeCacheHits + stats.persistentRangeCacheHits).toLocaleString();
   decodeTime.textContent = `${stats.workerDecodeMilliseconds.toFixed(0)} ms`;
+  buildTime.textContent = `${stats.mainThreadBuildMilliseconds.toFixed(0)} ms`;
   fpsOutput.textContent = measuredFps.toFixed(0);
   firstPointOutput.textContent = firstPointMilliseconds === undefined
     ? "—"
     : `${firstPointMilliseconds.toFixed(0)} ms`;
+  if (previousLoadingNodes > 0 && stats.loadingNodes === 0) {
+    cameraFocusNeedsDepthUpdate = true;
+  }
+  previousLoadingNodes = stats.loadingNodes;
+  updateStreamingStatus(stats.loadingNodes);
+  updateCameraFocusTarget(!cameraMoving && cameraFocusNeedsDepthUpdate);
   if (layer.lastError) status.textContent = errorMessage(layer.lastError);
 });
+
+function scheduleDetailFocus(event: PointerEvent): void {
+  if (event.buttons !== 0 || event.pointerId === cameraPointerId || !layer) {
+    resetDetailFocus();
+    return;
+  }
+  if (detailFocusTimer !== undefined) clearTimeout(detailFocusTimer);
+  const clientX = event.clientX;
+  const clientY = event.clientY;
+  detailFocusTimer = setTimeout(() => {
+    detailFocusTimer = undefined;
+    if (!layer) return;
+    const canvasBounds = viewer.scene.canvas.getBoundingClientRect();
+    const windowPosition = new Cartesian2(
+      clientX - canvasBounds.left,
+      clientY - canvasBounds.top,
+    );
+    const ray = viewer.camera.getPickRay(windowPosition);
+    if (!ray) return;
+    layer.setDetailFocus(ray.direction);
+    detailFocus.style.left = `${clientX}px`;
+    detailFocus.style.top = `${clientY}px`;
+    detailFocus.classList.add("active");
+    document.body.classList.add("detail-focus-active");
+  }, 400);
+}
+
+function resetDetailFocus(): void {
+  if (detailFocusTimer !== undefined) {
+    clearTimeout(detailFocusTimer);
+    detailFocusTimer = undefined;
+  }
+  detailFocus.classList.remove("active");
+  document.body.classList.remove("detail-focus-active");
+  layer?.setDetailFocus();
+}
+
+function updateStreamingStatus(loadingNodes: number): void {
+  cameraFocus.classList.toggle("refining", loadingNodes > 0);
+  if (loadingNodes > 0) {
+    if (streamingHideTimer !== undefined) {
+      clearTimeout(streamingHideTimer);
+      streamingHideTimer = undefined;
+    }
+    streamingStatus.hidden = false;
+    streamingStatusText.textContent = `Refining view · ${loadingNodes.toLocaleString()} nodes`;
+  } else if (!streamingStatus.hidden && streamingHideTimer === undefined) {
+    streamingHideTimer = setTimeout(() => {
+      streamingHideTimer = undefined;
+      streamingStatus.hidden = true;
+    }, 500);
+  }
+}
+
+function updateCameraFocusTarget(useDepth: boolean): void {
+  const target = centerSurfacePoint(useDepth);
+  if (useDepth) cameraFocusNeedsDepthUpdate = false;
+  cameraFocus.classList.toggle("has-target", target !== undefined);
+  if (!target) {
+    cameraFocusLabel.textContent = "";
+    return;
+  }
+  const distance = Cartesian3.distance(viewer.camera.positionWC, target);
+  cameraFocusLabel.textContent = `FOCUS · ${formatDistance(distance)}`;
+}
 
 viewer.screenSpaceEventHandler.setInputAction(((movement: { position: Parameters<CopcPointCloud["pick"]>[1] }) => {
   const point = layer?.pick(viewer.scene, movement.position);
@@ -315,11 +438,16 @@ function applyCameraOrbit(
 }
 
 function centerCameraPivot(): Cartesian3 | undefined {
+  return centerSurfacePoint()
+    ?? (layer ? Cartesian3.clone(layer.boundingSphere.center) : undefined);
+}
+
+function centerSurfacePoint(useDepth = true): Cartesian3 | undefined {
   const canvas = viewer.scene.canvas;
   screenCenter.x = canvas.clientWidth * 0.5;
   screenCenter.y = canvas.clientHeight * 0.5;
 
-  if (viewer.scene.pickPositionSupported) {
+  if (useDepth && viewer.scene.pickPositionSupported) {
     const position = viewer.scene.pickPosition(screenCenter, pickedCenter);
     if (position) return Cartesian3.clone(position);
   }
@@ -329,7 +457,7 @@ function centerCameraPivot(): Cartesian3 | undefined {
     const position = viewer.scene.globe.pick(ray, viewer.scene, pickedCenter);
     if (position) return Cartesian3.clone(position);
   }
-  return layer ? Cartesian3.clone(layer.boundingSphere.center) : undefined;
+  return undefined;
 }
 
 function cameraOrbitFromPivot(pivot: Cartesian3): HeadingPitchRange {
@@ -403,6 +531,17 @@ async function reportPickedPoint(point: NonNullable<ReturnType<CopcPointCloud["p
 }
 
 async function load(url: string): Promise<void> {
+  resetDetailFocus();
+  if (streamingHideTimer !== undefined) {
+    clearTimeout(streamingHideTimer);
+    streamingHideTimer = undefined;
+  }
+  streamingStatus.hidden = true;
+  cameraFocus.classList.remove("refining");
+  cameraFocus.classList.remove("has-target");
+  cameraFocusLabel.textContent = "";
+  cameraFocusNeedsDepthUpdate = true;
+  previousLoadingNodes = 0;
   loadStarted = performance.now();
   firstPointMilliseconds = undefined;
   firstPointOutput.textContent = "—";
@@ -418,8 +557,14 @@ async function load(url: string): Promise<void> {
     }
     status.textContent = `Opening ${formatBytes(diagnosis.contentLength ?? 0)} COPC…`;
     layer = await CopcPointCloud.fromUrl(url, {
-      pointBudget: 1_500_000,
-      maximumScreenSpaceError: 2,
+      pointBudget: Number(pointBudget.value),
+      // Request the next LOD slightly before the current level becomes visibly
+      // coarse so zooming has useful work already in flight.
+      maximumScreenSpaceError: Number(sse.value),
+      requestConcurrency: 8,
+      uploadTimeBudgetMilliseconds: cameraMoving
+        ? movingUploadBudgetMilliseconds
+        : idleUploadBudgetMilliseconds,
       cacheSize: 384 * 1024 * 1024,
       decodedCacheSize: 576 * 1024 * 1024,
       range: {
@@ -469,6 +614,11 @@ function formatBytes(bytes: number): string {
   const units = ["B", "KB", "MB", "GB"];
   const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   return `${(bytes / 1024 ** unit).toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function formatDistance(meters: number): string {
+  if (meters < 1_000) return `${meters.toFixed(meters < 10 ? 1 : 0)} m`;
+  return `${(meters / 1_000).toFixed(meters < 10_000 ? 1 : 0)} km`;
 }
 
 function errorMessage(error: unknown): string {

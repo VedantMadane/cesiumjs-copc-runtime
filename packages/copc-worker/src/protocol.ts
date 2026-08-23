@@ -1,6 +1,7 @@
 import type {
   CompressedPointCloudNode,
   CopcDecodingMetadata,
+  PointCloudNodeFilter,
   PointCloudNode,
 } from "@copc-runtime/core";
 
@@ -20,6 +21,12 @@ export type DecoderWorkerRequest =
       readonly id: number;
       readonly node: CompressedPointCloudNode;
       readonly dimensions: readonly string[];
+    }
+  | {
+      readonly type: "filter";
+      readonly id: number;
+      readonly node: PointCloudNode;
+      readonly filter?: PointCloudNodeFilter;
     }
   | { readonly type: "cancel"; readonly id: number }
   | { readonly type: "destroy"; readonly id: number };

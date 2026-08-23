@@ -114,6 +114,29 @@ describe("LOD selection", () => {
     expect(result.pointCount).toBe(1_500);
   });
 
+  it("spends limited refinement budget on the view focus", () => {
+    const grandchildrenByParent = new Map(children.map((child) => [
+      formatNodeId(child.id),
+      childNodeIds(child.id).map((id) => entry(id)),
+    ]));
+    const focusedParent = children.at(-1)!;
+    const result = selectLod(
+      root,
+      (id) => id.depth === 0 ? children : (grandchildrenByParent.get(formatNodeId(id)) ?? []),
+      {
+        ...view,
+        screenWeight: () => 0.05,
+        refinementWeight: (bounds) => bounds === focusedParent.bounds ? 2.5 : 1,
+      },
+      { maximumScreenSpaceError: 2, pointBudget: 1_500, minimumRefinementCoverage: 0.4 },
+    );
+
+    const refinedParents = new Set(result.selected
+      .filter((node) => node.id.depth === 2)
+      .map((node) => formatNodeId(ancestorNodeId(node.id, 1))));
+    expect(refinedParents).toEqual(new Set([formatNodeId(focusedParent.id)]));
+  });
+
   it("keeps a ready parent until all requested sibling branches are ready", () => {
     const ready = new Set([formatNodeId(root.id), formatNodeId(children[0]!.id)]);
     const visible = resolveReadyLod(

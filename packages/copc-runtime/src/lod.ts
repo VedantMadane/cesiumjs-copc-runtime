@@ -13,6 +13,8 @@ export interface ViewState {
   distanceTo(bounds: Bounds3): number;
   /** Approximate projected screen area used for coverage-aware refinement. */
   screenWeight?(bounds: Bounds3): number;
+  /** View-dependent multiplier used to direct limited refinement budget. */
+  refinementWeight?(bounds: Bounds3): number;
 }
 
 export interface LodOptions {
@@ -61,8 +63,9 @@ export function selectLod(
   let pointCount = root.pointCount;
 
   const consider = (node: HierarchyEntry): void => {
-    const error = screenSpaceError(node, view);
-    if (error <= options.maximumScreenSpaceError) return;
+    const baseError = screenSpaceError(node, view);
+    if (baseError <= options.maximumScreenSpaceError) return;
+    const error = baseError * Math.max(0, view.refinementWeight?.(node.bounds) ?? 1);
     const children = childrenOf(node.id);
     if (children === undefined) {
       refinementRequested.push(node);
@@ -91,6 +94,7 @@ export function selectLod(
           children,
           pointDelta: childPoints - candidate.node.pointCount,
           weight: Math.max(0, view.screenWeight?.(candidate.node.bounds) ?? 1),
+          refinementWeight: Math.max(0, view.refinementWeight?.(candidate.node.bounds) ?? 1),
         };
       }).filter((candidate) => candidate.children.length > 0);
 
@@ -106,7 +110,10 @@ export function selectLod(
       }
       const relativeCoverage = totalWeight > 0 ? chosenWeight / totalWeight : 0;
       const viewportCoverage = view.screenWeight ? Math.min(1, chosenWeight) : 0;
-      if (relativeCoverage < minimumCoverage && viewportCoverage < minimumCoverage) continue;
+      const containsFocus = chosen.some((candidate) => candidate.refinementWeight > 1.25);
+      if (relativeCoverage < minimumCoverage
+        && viewportCoverage < minimumCoverage
+        && !containsFocus) continue;
 
       const completeCohort = chosen.length === refinements.length;
       const fillsViewport = viewportCoverage >= minimumCoverage;
@@ -117,7 +124,7 @@ export function selectLod(
         for (const child of candidate.children) {
           selected.set(formatNodeId(child.id), child);
           // Do not refine deeper after only a partial screen cohort was affordable.
-          if (completeCohort || fillsViewport) consider(child);
+          if (completeCohort || fillsViewport || candidate.refinementWeight > 1.25) consider(child);
         }
         pointCount += candidate.pointDelta;
       }

@@ -4,8 +4,19 @@ import proj4 from "proj4";
 
 export type ToCartesian = (x: number, y: number, z: number, result?: Cartesian3) => Cartesian3;
 
+/** Describes how source Z values should be interpreted before creating ECEF positions. */
+export type VerticalDatum =
+  | { readonly type: "as-is" }
+  | { readonly type: "ellipsoid" }
+  | { readonly type: "geoid"; readonly model: "egm96" };
+
 export interface CoordinateTransformerOptions {
-  /** Disable when source heights are already ellipsoidal. */
+  /**
+   * Vertical reference of source Z values. No geoid correction is applied when
+   * omitted because a WKT vertical CRS is not sufficient to select a geoid model.
+   */
+  readonly verticalDatum?: VerticalDatum;
+  /** @deprecated Use verticalDatum. Explicit "egm96" retains the legacy behavior. */
   readonly geoidModel?: "egm96" | "none";
   /** Additional application-specific offset after datum conversion, in meters. */
   readonly verticalOffsetMeters?: number;
@@ -16,6 +27,13 @@ export function createCoordinateTransformer(
   options: CoordinateTransformerOptions = {},
 ): ToCartesian {
   const { horizontalCrs, verticalUnitToMeters, orthometricHeight } = decomposeCrs(sourceCrs);
+  if (options.verticalDatum !== undefined && options.geoidModel !== undefined) {
+    throw new Error("Pass either verticalDatum or the deprecated geoidModel option, not both");
+  }
+  const applyEgm96 = options.verticalDatum?.type === "geoid"
+    || (options.verticalDatum === undefined
+      && options.geoidModel === "egm96"
+      && orthometricHeight);
   const verticalOffsetMeters = options.verticalOffsetMeters ?? 0;
   if (!Number.isFinite(verticalOffsetMeters)) {
     throw new RangeError("verticalOffsetMeters must be finite");
@@ -29,7 +47,7 @@ export function createCoordinateTransformer(
   return (x, y, z, result) => {
     const [longitude, latitude] = transform.forward([x, y]);
     const heightMeters = z * verticalUnitToMeters;
-    const ellipsoidHeight = orthometricHeight && options.geoidModel !== "none"
+    const ellipsoidHeight = applyEgm96
       ? egm96ToEllipsoid(latitude, longitude, heightMeters)
       : heightMeters;
     return Cartesian3.fromDegrees(

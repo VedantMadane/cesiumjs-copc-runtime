@@ -2,6 +2,7 @@
 
 import {
   decodeCompressedPointNode,
+  filterPointCloudNode,
   type CopcDecodingMetadata,
   type PointCloudNode,
 } from "@copc-runtime/core";
@@ -46,6 +47,11 @@ async function handle(request: DecoderWorkerRequest): Promise<void> {
         } finally {
           controllers.delete(request.id);
         }
+        return;
+      }
+      case "filter": {
+        const node = filterPointCloudNode(request.node, request.filter);
+        respond({ type: "success", id: request.id, node }, transferables(node));
         return;
       }
       case "cancel":

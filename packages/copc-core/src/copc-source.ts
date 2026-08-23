@@ -210,6 +210,7 @@ export class CopcSource implements PointCloudSource {
     persistentCacheHits: number;
     coalescedRequests: number;
     bytesReceived: number;
+    networkMilliseconds: number;
     cachedBytes: number;
     contentLength?: number;
   } {
@@ -221,6 +222,7 @@ export class CopcSource implements PointCloudSource {
       persistentCacheHits: this.#reader?.persistentCacheHitCount ?? 0,
       coalescedRequests: this.#reader?.coalescedRequestCount ?? 0,
       bytesReceived: this.#reader?.bytesReceived ?? 0,
+      networkMilliseconds: this.#reader?.networkMilliseconds ?? 0,
       cachedBytes: this.#reader?.cachedBytes ?? 0,
       ...(contentLength === undefined ? {} : { contentLength }),
     };

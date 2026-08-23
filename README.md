@@ -21,8 +21,8 @@ raw COPC data spatially correct and visually coherent while it streams:
   COPC metadata, dimensions, and embedded CRS. Nearby range reads are coalesced and
   cached in memory and IndexedDB.
 - Source coordinates are transformed to WGS84 Cartesian coordinates. Compound CRS
-  definitions, US survey feet, and NAVD88 orthometric heights are handled, with an
-  EGM96 geoid correction and an optional local vertical offset.
+  definitions and vertical units are handled without guessing a geoid model. EGM96
+  correction can be enabled explicitly, and a local vertical offset is optional.
 - Cesium World Terrain and the WGS84 ellipsoid can be selected as independent
   surface references. Picking a point reports its ellipsoid height, sampled surface
   height, and vertical difference instead of silently clamping the cloud.
@@ -91,6 +91,11 @@ console.log(point?.node, point?.height, point?.attributes.Classification);
 
 The COPC server must support CORS and return `206 Partial Content` for byte range requests. If the file does not contain a CRS WKT, provide `sourceCrs`, for example `sourceCrs: "EPSG:32652"`.
 
+Source vertical units are converted to meters, but no geoid correction is applied
+by default. Only when the source is known to use the EGM96 geoid, pass
+`verticalDatum: { type: "geoid", model: "egm96" }` to convert its orthometric
+heights to ellipsoid heights.
+
 `CopcPointCloud.validateUrl(url)` checks byte-range support, file size, COPC metadata, available dimensions, and embedded CRS before a layer is opened.
 
 ## Development
@@ -136,5 +141,5 @@ const profile = await computeHeightProfile(source, [startX, startY], [endX, endY
 - Cesium's buffer point API is experimental, so minor Cesium releases may require compatibility updates.
 - Runtime color and filter changes update Cesium buffer attributes on the CPU; point size uses a shared shader uniform, while general custom shader expressions are not implemented yet.
 - `CopcEyeDomeLighting` uses Cesium's supported scene-depth post-process path. It improves point-cloud depth cues, but also shades depth discontinuities on terrain and other opaque scene geometry.
-- Compound CRS heights marked as NAVD88/orthometric are converted to WGS84 ellipsoid heights with a bundled EGM96 grid. GEOID18 and local survey datums can differ from EGM96; use `verticalOffsetMeters` when a higher-accuracy local correction is available.
+- Vertical CRS metadata does not automatically select a geoid model. Vertical units are normalized, but geoid correction requires `verticalDatum`; currently only explicit EGM96 geoid-to-ellipsoid correction is supported.
 - IndexedDB uses URL + exact byte range keys; applications should set `range.cacheKey` when a URL can serve changing content.

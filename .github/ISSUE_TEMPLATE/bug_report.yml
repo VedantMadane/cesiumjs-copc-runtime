@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible loading, rendering, or analysis defect
+title: "[Bug]: "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve CesiumJS COPC Runtime. Remove credentials and private data.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: input
+    id: dataset
+    attributes:
+      label: Public COPC URL or reproduction
+      description: Use a public dataset or minimal synthetic fixture when possible.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, OS, GPU, package versions, source CRS, and relevant options.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Include validateUrl output, console errors, or benchmark JSON with secrets removed.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: I removed credentials and restricted dataset information.
+          required: true

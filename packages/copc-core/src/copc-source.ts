@@ -1,5 +1,11 @@
 import { Copc, Las, type Getter, type Hierarchy } from "copc";
-import { ancestorNodeId, boundsForNode, childNodeIds, formatNodeId, parseNodeId } from "./node-id.js";
+import {
+  ancestorNodeId,
+  boundsForNode,
+  childNodeIds,
+  formatNodeId,
+  parseNodeId,
+} from "./node-id.js";
 import { HttpRangeReader, type RangeDiagnostics, type RangeReaderOptions } from "./range-reader.js";
 import { decodeCompressedPointNode, type CopcDecodingMetadata } from "./decoder.js";
 import type {
@@ -102,7 +108,9 @@ export class CopcSource implements PointCloudSource {
       spacing: copc.info.spacing,
       pointCount: copc.header.pointCount,
       pointDataRecordFormat: copc.header.pointDataRecordFormat,
-      dimensions: Object.keys(Las.Dimensions.create(Las.Extractor.create(copc.header, copc.eb), copc.eb)),
+      dimensions: Object.keys(
+        Las.Dimensions.create(Las.Extractor.create(copc.header, copc.eb), copc.eb),
+      ),
       ...(copc.wkt === undefined ? {} : { crs: copc.wkt }),
       gpsTimeRange: copc.info.gpsTimeRange,
     };
@@ -114,17 +122,19 @@ export class CopcSource implements PointCloudSource {
     if (this.#loadedPages.has(pageId)) return;
     const existing = this.#pageLoads.get(pageId);
     if (existing) return existing;
-    const load = Copc.loadHierarchyPage(this.#input, page).then((subtree) => {
-      for (const [nodeKey, node] of Object.entries(subtree.nodes)) {
-        if (node) this.#nodes.set(nodeKey, node);
-      }
-      for (const [nodeKey, childPage] of Object.entries(subtree.pages)) {
-        if (childPage) this.#pages.set(nodeKey, childPage);
-      }
-      this.#loadedPages.add(pageId);
-      // A page is indexed by the node whose descendants it contains.
-      this.#pages.delete(key);
-    }).finally(() => this.#pageLoads.delete(pageId));
+    const load = Copc.loadHierarchyPage(this.#input, page)
+      .then((subtree) => {
+        for (const [nodeKey, node] of Object.entries(subtree.nodes)) {
+          if (node) this.#nodes.set(nodeKey, node);
+        }
+        for (const [nodeKey, childPage] of Object.entries(subtree.pages)) {
+          if (childPage) this.#pages.set(nodeKey, childPage);
+        }
+        this.#loadedPages.add(pageId);
+        // A page is indexed by the node whose descendants it contains.
+        this.#pages.delete(key);
+      })
+      .finally(() => this.#pageLoads.delete(pageId));
     this.#pageLoads.set(pageId, load);
     return load;
   }
@@ -141,7 +151,6 @@ export class CopcSource implements PointCloudSource {
 
   async getHierarchy(node: NodeId): Promise<readonly HierarchyEntry[]> {
     this.#assertAlive();
-    const key = formatNodeId(node);
     const children = childNodeIds(node);
     // A hierarchy page placeholder may replace either the requested node or
     // one of its immediate children, depending on where the page boundary fell.
@@ -164,19 +173,13 @@ export class CopcSource implements PointCloudSource {
     return decodeCompressedPointNode(this.decodingMetadata(), compressed, dimensions, signal);
   }
 
-  async loadCompressedNode(
-    id: NodeId,
-    signal?: AbortSignal,
-  ): Promise<CompressedPointCloudNode> {
+  async loadCompressedNode(id: NodeId, signal?: AbortSignal): Promise<CompressedPointCloudNode> {
     this.#assertAlive();
     signal?.throwIfAborted();
     const key = formatNodeId(id);
     const node = await this.#resolveNode(id, signal);
     if (!node) throw new Error(`COPC hierarchy node not found: ${key}`);
-    const bytes = await Copc.loadCompressedPointDataBuffer(
-      this.#inputForSignal(signal),
-      node,
-    );
+    const bytes = await Copc.loadCompressedPointDataBuffer(this.#inputForSignal(signal), node);
     signal?.throwIfAborted();
     return {
       id,

@@ -11,14 +11,26 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "tsc -b --clean",
+    "lint": "eslint apps packages --max-warnings 0",
+    "format": "prettier --write \"{apps,packages}/**/*.{ts,css,html,json}\" \"*.{json,js}\"",
+    "format:check": "prettier --check \"{apps,packages}/**/*.{ts,css,html,json}\" \"*.{json,js}\"",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "demo": "npm run dev --workspace cesiumjs-copc-demo",
     "demo:build": "npm run build --workspace cesiumjs-copc-demo",
     "benchmark": "npm run build --workspace cesiumjs-copc-benchmark && node packages/benchmark/dist/cli.js",
+    "pack:check": "npm pack --dry-run --workspace cesiumjs-copc --workspace cesiumjs-copc-core --workspace cesiumjs-copc-runtime --workspace cesiumjs-copc-worker --workspace cesiumjs-copc-analysis",
     "typecheck": "tsc -b --pretty false"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@vitest/coverage-v8": "^3.2.7",
+    "eslint": "^10.9.1",
+    "prettier": "^3.9.6",
     "typescript": "^5.9.2",
+    "typescript-eslint": "^8.68.0",
     "vitest": "^3.2.4"
   },
   "engines": {

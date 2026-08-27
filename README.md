@@ -2,56 +2,112 @@
 
 Cloud-native COPC streaming and analysis for CesiumJS without 3D Tiles preprocessing.
 
-> CesiumJS COPC Runtime is an independent open-source project and is not an official Cesium project.
+[![CI](https://github.com/yangseungsang/cesiumjs-copc-runtime/actions/workflows/ci.yml/badge.svg)](https://github.com/yangseungsang/cesiumjs-copc-runtime/actions/workflows/ci.yml)
+[![Demo](https://img.shields.io/badge/demo-GitHub%20Pages-00a67d)](https://yangseungsang.github.io/cesiumjs-copc-runtime/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-0b7285.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-43853d.svg)](package.json)
 
-> Status: working MVP. The repository implements coalesced HTTP range streaming, COPC hierarchy and Worker LAZ decoding, camera-driven LOD and point budgets, three-stage caching, source-CRS analysis, and Cesium GPU buffer rendering.
+[Live demo](https://yangseungsang.github.io/cesiumjs-copc-runtime/) ·
+[한국어](README.ko.md) ·
+[Getting started](docs/getting-started.md) ·
+[Architecture](docs/architecture.md) ·
+[Benchmarks](docs/benchmarks.md) ·
+[Contributing](CONTRIBUTING.md)
+
+![A COPC point cloud progressively streamed over a globe](docs/assets/cesiumjs-copc-runtime-hero.png)
+
+CesiumJS COPC Runtime reads a COPC file through HTTP byte ranges, selects the octree
+nodes required by the current camera, decodes LAZ data in Workers, and renders points
+through CesiumJS GPU buffers. The same source coordinates and attributes remain
+available for picking and streaming analysis.
+
+> This is an independent open-source project and is not an official Cesium project.
+
+## Why this project exists
+
+Conventional web point-cloud pipelines often convert source data into a separate
+delivery format. That adds preprocessing, duplicates storage, and separates analysis
+from visualization. COPC already stores LAZ points in a range-addressable octree, so
+the browser can request only the hierarchy pages and node chunks needed for a view.
+
+```text
+Conventional:  source point cloud → preprocessing → service copy → viewer
+This project:  one COPC file ─────── HTTP byte ranges ────────→ CesiumJS
+                                      └───────────────────────→ analysis
+```
+
+## Evidence at a glance
+
+| Evidence                                 |                                       Current result |
+| ---------------------------------------- | ---------------------------------------------------: |
+| Automated unit tests                     |                             58 tests across 15 files |
+| Coverage baseline                        | 50.95% statements, 74.01% branches, 81.04% functions |
+| Supported CI runtimes                    |                                    Node.js 20 and 22 |
+| Browser verification                     |                           Chromium viewer smoke test |
+| Reference COPC                           |                         10,653,336 points / 77.4 MiB |
+| Bytes transferred for the benchmark view |                                        about 3.0 MiB |
+| Points decoded                           |                        269,241 across 8 octree nodes |
+| Median decode throughput, three runs     |                                about 55,875 points/s |
+
+See [the reproducible benchmark methodology](docs/benchmarks.md) before comparing
+these numbers with another environment.
+
+## Features
+
+- COPC header, VLR, and hierarchy pages loaded lazily through HTTP `206` ranges
+- nearby range coalescing plus compressed, decoded, and IndexedDB caches
+- additive screen-space LOD with camera-centered priorities and point budgets
+- cancellation and reprioritization when the camera changes
+- transferable Worker-based LAZ decoding
+- node-relative ECEF `Float32` render positions with source `Float64` coordinates
+- WKT compound CRS handling, explicit EGM96 correction, and common Korean EPSG grids
+- RGB, classification, intensity, and elevation coloring; filters, opacity, and EDL
+- picking, GPS time–Cesium Clock binding, spatial queries, statistics, and profiles
+- low, medium, and high device tiers with overridable budgets
+
+## Architecture
+
+```mermaid
+flowchart LR
+  URL[Remote COPC] --> RANGE[Coalesced HTTP ranges]
+  RANGE --> SOURCE[Hierarchy and cache]
+  SOURCE --> LOD[Camera LOD scheduler]
+  LOD --> WORKER[LAZ decode and CRS transform]
+  WORKER --> GPU[CesiumJS GPU buffers]
+  SOURCE --> ANALYSIS[Streaming spatial analysis]
+```
+
+The runtime is split into packages so networking, scheduling, decoding, rendering,
+and analysis can evolve independently. See [Architecture](docs/architecture.md) and
+[ADR-0001](docs/adr/0001-native-copc-runtime.md) for the design rationale.
 
 ## Packages
 
-- `cesiumjs-copc`: CesiumJS primitive-style integration and the main package
-- `cesiumjs-copc-core`: COPC source, range reader, hierarchy and decoded point types
-- `cesiumjs-copc-runtime`: screen-space LOD, point-budget selection, request queue and byte-sized LRU cache
-- `cesiumjs-copc-worker`: transferable browser Worker pool for LAZ decoding
-- `cesiumjs-copc-analysis`: streaming bounds queries and point-cloud statistics
+| Package                   | Role                                                         |
+| ------------------------- | ------------------------------------------------------------ |
+| `cesiumjs-copc`           | Main CesiumJS rendering and interaction package              |
+| `cesiumjs-copc-core`      | COPC source, range reader, hierarchy, cache, and point types |
+| `cesiumjs-copc-runtime`   | LOD selection, request queue, device tiers, and memory cache |
+| `cesiumjs-copc-worker`    | Browser Worker pool, LAZ decode, and render coordinates      |
+| `cesiumjs-copc-analysis`  | Bounds queries, statistics, and height profiles              |
+| `cesiumjs-copc-benchmark` | Reproducible remote streaming and decode benchmark           |
 
-## Viewer behavior and design choices
+## Quick start from source
 
-The demo and Cesium integration include several choices made specifically to keep
-raw COPC data spatially correct and visually coherent while it streams:
+Node.js 20 or newer is required.
 
-- Remote sources are diagnosed before opening, including CORS byte-range support,
-  COPC metadata, dimensions, and embedded CRS. Nearby range reads are coalesced and
-  cached in memory and IndexedDB.
-- Source coordinates are transformed to WGS84 Cartesian coordinates. Compound CRS
-  definitions and vertical units are handled without guessing a geoid model. EGM96
-  correction can be enabled explicitly, and a local vertical offset is optional.
-- The decode worker also projects the normal ellipsoid-height path into node-relative
-  ECEF `Float32` render positions. Source `Float64` coordinates remain available for
-  picking, filtering, and analysis, while per-point projection is removed from the
-  main-thread upload loop. Explicit geoid correction retains the fallback path.
-- Cesium World Terrain and the WGS84 ellipsoid can be selected as independent
-  surface references. Picking a point reports its ellipsoid height, sampled surface
-  height, and vertical difference instead of silently clamping the cloud.
-- Imagery, terrain, point coloring/filtering, opacity, outline, and eye-dome lighting
-  are independently selectable so terrain and COPC geometry can be compared directly.
-- Normal dragging moves the map. Holding Space while dragging orbits around the
-  position under the center of the viewport; Heading and Pitch controls use the same
-  center pivot.
-- Point size is a shared shader uniform, so changing it is constant-time and does not
-  rewrite every point's GPU attributes.
-- Streaming requests are reprioritized toward the camera center. Parent nodes remain
-  visible because COPC refinement is additive, while child cohorts are revealed only
-  when they are ready. Higher-detail cohorts are revealed only
-  when they cover a meaningful portion of the viewport. This avoids small isolated
-  patches of unusually dense points during loading and under a constrained budget.
-- Default point, memory, worker, and request budgets adapt to low, medium, and high
-  device tiers. Unknown devices use the medium tier; every budget remains overridable.
-- Korean national grids commonly used by public surveying data are registered out of
-  the box (`EPSG:5173`–`5188`, `EPSG:2096`–`2098`, and `EPSG:4737`). Legacy Bessel
-  WKT that declares one of these codes but omits its datum shift uses the curated
-  definition instead of silently rendering hundreds of metres away.
+```sh
+git clone https://github.com/yangseungsang/cesiumjs-copc-runtime.git
+cd cesiumjs-copc-runtime
+npm ci
+npm run build
+npm run demo
+```
 
-## Usage
+Open the displayed local URL. The demo loads the public Autzen Stadium COPC by
+default and accepts any CORS-enabled COPC URL that supports byte ranges.
+
+## Library usage
 
 ```ts
 import { Viewer } from "cesium";
@@ -62,76 +118,29 @@ const viewer = new Viewer("cesiumContainer");
 const persistentCache = IndexedDbRangeCache.supported
   ? new IndexedDbRangeCache({ maximumBytes: 512 * 1024 * 1024 })
   : undefined;
-const pointCloud = await CopcPointCloud.fromUrl(
-  "https://example.com/data.copc.laz",
-  {
-    maximumScreenSpaceError: 2,
-    workerCount: 4,
-    pointBudget: 2_000_000,
-    minimumRefinementCoverage: 0.4,
-    pointSize: 2,
-    opacity: 1,
-    cacheSize: 512 * 1024 * 1024,
-    decodedCacheSize: 768 * 1024 * 1024,
-    range: {
-      compressedCacheSize: 128 * 1024 * 1024,
-      persistentCache,
-    },
-    colorBy: "rgb",
-    allowPicking: true,
-    dimensions: ["Red", "Green", "Blue", "Intensity", "Classification", "GpsTime"],
-  },
-);
 
-viewer.scene.primitives.add(pointCloud);
-
-// These can be changed while the layer is visible.
-pointCloud.colorBy = "classification"; // rgb | classification | intensity | elevation
-pointCloud.pointSize = 3;
-pointCloud.filter = { classifications: [2, 6], intensity: [500, 65_535] };
-console.log(pointCloud.deviceTier); // low | medium | high
-
-pointCloud.bindClock(viewer.clock, {
-  start: viewer.clock.startTime,
-  stop: viewer.clock.stopTime,
-  gpsStart: 1_000_000,
-  gpsStop: 1_000_120,
-  window: 10,
+const pointCloud = await CopcPointCloud.fromUrl("https://example.com/data.copc.laz", {
+  maximumScreenSpaceError: 2,
+  pointBudget: 2_000_000,
+  pointSize: 2,
+  colorBy: "rgb",
+  allowPicking: true,
+  range: { persistentCache },
 });
 
-const point = pointCloud.pick(viewer.scene, windowPosition);
-console.log(point?.node, point?.height, point?.attributes.Classification);
+viewer.scene.primitives.add(pointCloud);
 ```
 
-The COPC server must support CORS and return `206 Partial Content` for byte range requests. If the file does not contain a CRS WKT, provide `sourceCrs`, for example `sourceCrs: "EPSG:32652"`.
+Run `CopcPointCloud.validateUrl(url)` before opening an unfamiliar source. A server
+must allow CORS and return `206 Partial Content`; provide `sourceCrs` when the file
+does not contain CRS WKT. See [Getting started](docs/getting-started.md),
+[Coordinate systems](docs/coordinate-systems.md), and
+[Troubleshooting](docs/troubleshooting.md).
 
-Source vertical units are converted to meters, but no geoid correction is applied
-by default. Only when the source is known to use the EGM96 geoid, pass
-`verticalDatum: { type: "geoid", model: "egm96" }` to convert its orthometric
-heights to ellipsoid heights.
-
-`CopcPointCloud.validateUrl(url)` checks byte-range support, file size, COPC metadata, available dimensions, and embedded CRS before a layer is opened.
-
-## Development
-
-```sh
-npm install
-npm test
-npm run build
-```
-
-Run a repeatable streaming/decode benchmark against any CORS-enabled COPC URL:
-
-```sh
-npm run benchmark -- https://example.com/data.copc.laz 1000000
-```
-
-The report includes metadata load, time to first point, decode throughput, HTTP range bytes, coalescing and cache hits, and process memory.
-
-Spatial queries operate directly in the source COPC CRS and return an async stream, so callers can process large areas without first materializing the complete result:
+## Streaming analysis
 
 ```ts
-import { queryBounds, computeStatistics } from "cesiumjs-copc-analysis";
+import { computeStatistics, queryBounds } from "cesiumjs-copc-analysis";
 
 const nodes = queryBounds(source, [minX, minY, minZ, maxX, maxY, maxZ], {
   pointLimit: 2_000_000,
@@ -140,20 +149,37 @@ const nodes = queryBounds(source, [minX, minY, minZ, maxX, maxY, maxZ], {
 const statistics = await computeStatistics(nodes);
 ```
 
-Height profiles use the same streaming query path:
+Queries operate in the source COPC CRS and return an asynchronous stream, avoiding a
+full dataset materialization before analysis begins.
 
-```ts
-const profile = await computeHeightProfile(source, [startX, startY], [endX, endY], {
-  width: 5,
-  pointLimit: 1_000_000,
-});
+## Quality gates
+
+Every pull request runs formatting, lint, 58 unit tests, coverage thresholds,
+TypeScript checks, all workspace builds, package dry-runs, and a Chromium smoke test.
+
+```sh
+npm run lint
+npm run format:check
+npm test
+npm run test:coverage
+npm run typecheck
+npm run build
+npm run demo:build
+npm run test:e2e
 ```
 
-## Current limitations
+## Project status
 
-- Set `useWorkers: false` only when Web Workers are unavailable; browser decoding uses a transferable worker pool by default.
-- Cesium's buffer point API is experimental, so minor Cesium releases may require compatibility updates.
-- Runtime color and filter changes update Cesium buffer attributes on the CPU; point size uses a shared shader uniform, while general custom shader expressions are not implemented yet.
-- `CopcEyeDomeLighting` uses Cesium's supported scene-depth post-process path. It improves point-cloud depth cues, but also shades depth discontinuities on terrain and other opaque scene geometry.
-- Vertical CRS metadata does not automatically select a geoid model. Vertical units are normalized, but geoid correction requires `verticalDatum`; currently only explicit EGM96 geoid-to-ellipsoid correction is supported.
-- IndexedDB uses URL + exact byte range keys; applications should set `range.cacheKey` when a URL can serve changing content.
+The project is a working `0.1.0` MVP. Current limitations include Cesium's
+experimental buffer point API, CPU-side runtime color/filter updates, explicit-only
+geoid correction, and incomplete long-duration browser benchmarks. These are tracked
+publicly in [Issues](https://github.com/yangseungsang/cesiumjs-copc-runtime/issues)
+and the [roadmap](docs/roadmap.md).
+
+## Contributing and security
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Use the
+structured issue forms for bugs, features, and performance reports. Suspected
+vulnerabilities must be reported privately according to [SECURITY.md](SECURITY.md).
+
+Released under the [MIT License](LICENSE).

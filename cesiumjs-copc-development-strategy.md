@@ -1,5 +1,9 @@
 # CesiumJS 기반 COPC 가시화 라이브러리 개발 전략
 
+> 구현 현황 기준일: **2026-08-27**
+> 이 문서는 초기 설계 제안과 현재 구현 상태를 함께 관리한다. “권장”으로 남아 있는
+> 항목과 이미 구현된 항목을 구분해 다음 개발 우선순위를 판단하는 기준으로 사용한다.
+
 ## 1. 프로젝트 방향
 
 COPC(Cloud Optimized Point Cloud)를 CesiumJS에서 직접 가시화하려는 방향은 기술적으로 충분히 타당하다.
@@ -23,6 +27,18 @@ COPC의 핵심 장점은 단순히 LAZ 데이터를 웹에서 읽을 수 있다�
 > **COPC Native Streaming Runtime for CesiumJS**
 
 로 정의하는 것이 더 적절하다.
+
+### 현재 상태
+
+이 방향은 현재 monorepo의 실제 구조로 구현됐다. `CopcSource`와 Cesium Renderer가
+분리되어 있으며, 동일한 source 좌표·attribute를 Cesium Picking과 분석 패키지가
+공유한다. 현재 구현은 “Viewer”가 아니라 다음 기능을 포함하는 Runtime MVP다.
+
+- COPC Range Streaming과 hierarchy page 지연 로딩
+- additive LoD와 기기별 Point Budget
+- Worker LAZ decode·CRS 투영·상대 ECEF 렌더 좌표 생성
+- Cesium Primitive, Picking, EDL, GPS Time 연동
+- IndexedDB Range Cache와 streaming 분석 API
 
 ---
 
@@ -146,6 +162,17 @@ class CopcSource implements PointCloudSource {
 
 실제 성능 경쟁력은 COPC parsing보다 LOD Scheduler에서 크게 갈린다.
 
+COPC/EPT Node는 raster tile처럼 부모를 자식으로 교체하는 구조가 아니다. Point는
+깊이 사이에서 중복되지 않으므로 렌더 집합은 다음처럼 **additive**여야 한다.
+
+```text
+Rendered Points = Level 0 + visible Level 1 + ... + selected Level N
+```
+
+현재 Runtime은 이 누적 규칙으로 Point Budget을 계산하고, child cohort가 충분히
+준비될 때까지 상위 Node를 계속 표시해 작은 고밀도 patch가 먼저 튀어나오는 현상을
+줄인다.
+
 COPC 내부 Octree를 그대로 활용하여 다음 구조로 처리한다.
 
 ```text
@@ -209,6 +236,10 @@ priority =
 ```
 
 GPU와 CPU 성능 범위 내에서 전체 Point 수를 안정적으로 유지하는 것이 목표다.
+
+현재는 `navigator.deviceMemory`, `hardwareConcurrency`, mobile 여부,
+`devicePixelRatio`를 이용해 low/medium/high 등급을 선택한다. 신호가 없는 환경은
+medium을 사용하며 Point·Memory·Worker·Request 예산은 모든 등급에서 재정의할 수 있다.
 
 ---
 
@@ -278,6 +309,22 @@ Worker에서 Main Thread로 전달할 때는 Transferable ArrayBuffer를 적극 
 ```ts
 postMessage(buffer, [buffer]);
 ```
+
+현재 구현은 여기에 렌더 전용 데이터 생성까지 포함한다.
+
+```text
+LAZ Chunk
+  → source CRS Float64 + LAS Attributes
+  → CRS Projection
+  → ECEF Float64
+  → Node Origin 기준 상대 Float32
+  → Transferable로 Main Thread 전달
+```
+
+source CRS `Float64`는 Picking·필터·분석을 위해 보존하고, 상대 ECEF `Float32`는
+Cesium GPU upload에만 사용한다. 따라서 Main Thread의 Point별 `proj4` 및
+`Cartesian3.fromDegrees()` 호출을 일반 경로에서 제거했다. 명시적 EGM96 geoid
+보정은 정확성과 bundle 중복을 위해 기존 fallback 경로를 사용한다.
 
 ---
 
@@ -419,6 +466,16 @@ Cesium modelMatrix
 
 모든 Point에 대해 개별적으로 `Cartesian3.fromDegrees()`를 호출하는 방식은 피하는 것이 좋다.
 
+현재 구현은 다음을 지원한다.
+
+- WKT1/WKT2 compound CRS의 수평 성분 추출
+- 수평·수직 단위 독립 처리와 비복합 projected CRS의 Z 단위 추론
+- 명시적 EGM96 geoid-to-ellipsoid 보정과 수직 offset
+- `EPSG:5173`–`5188`, `EPSG:2096`–`2098`, `EPSG:4737` 등록
+- Bessel 기반 국내 WKT가 EPSG code만 밝히고 datum shift를 누락한 경우 curated 정의 사용
+
+토큰 기반의 완전한 WKT parser와 `BOUNDCRS`의 모든 변형 처리는 후속 강화 대상이다.
+
 ---
 
 ## 14. Local Coordinate 기반 GPU 저장
@@ -450,6 +507,11 @@ primitive.modelMatrix =
 ```
 
 이 방식은 Precision과 메모리 양쪽에서 유리하다.
+
+이 구조는 현재 Worker와 `CopcPointCloud`에 구현됐다. Worker가 Node Point의 ECEF
+범위를 계산해 중앙 원점을 정하고 상대 `Float32Array`를 생성한다. Renderer는
+원점을 `modelMatrix` translation으로 사용하며, 필터가 Point를 compact할 때도 같은
+원점의 상대 좌표를 함께 compact한다.
 
 ---
 
@@ -923,7 +985,15 @@ interface CopcPointCloudOptions {
 
 # 30. 개발 단계
 
+현재 단계 표기:
+
+- **완료**: 핵심 Runtime에 구현되고 자동 테스트가 존재
+- **부분 완료**: 기본 기능은 구현됐으나 API 또는 통합 검증 보강 필요
+- **예정**: 아직 제품 코드에 포함되지 않음
+
 ## Phase 1 — Proof of Concept
+
+상태: **완료**
 
 목표:
 
@@ -946,6 +1016,8 @@ COPC → CesiumJS
 
 ## Phase 2 — Streaming
 
+상태: **완료**
+
 추가 기능:
 
 - Camera 기반 Traversal
@@ -960,6 +1032,8 @@ COPC → CesiumJS
 ---
 
 ## Phase 3 — Performance
+
+상태: **완료(브라우저 장시간 benchmark 보강 필요)**
 
 추가 기능:
 
@@ -976,6 +1050,8 @@ COPC → CesiumJS
 ---
 
 ## Phase 4 — Visualization
+
+상태: **부분 완료**
 
 지원 Attribute:
 
@@ -1000,6 +1076,8 @@ GPS Time
 
 ## Phase 5 — Cesium Native Integration
 
+상태: **부분 완료**
+
 추가 기능:
 
 - Picking
@@ -1014,6 +1092,8 @@ GPS Time
 ---
 
 ## Phase 6 — Analysis
+
+상태: **부분 완료**
 
 추가 기능:
 
@@ -1070,6 +1150,24 @@ GPU Memory          220 MB
 - Eptium Viewer
 - 기존 Runtime 3D Tiles 방식
 - Native COPC Renderer
+
+### 현재 측정 기준선
+
+2026-08-24 Autzen Stadium 원격 COPC를 250,000 Point 목표로 측정한 결과다.
+
+```text
+Dataset             10,653,336 Points / 77.4 MiB
+Decoded Nodes       8
+Decoded Points      269,241
+Network             3.0 MiB
+Physical Requests   8
+Logical Ranges      11
+Coalesced Ranges    3
+Decode Throughput   약 58,123 Points/s
+```
+
+이는 Node decode와 Range 계층의 기준선이다. FPS, Time-to-first-meaningful-view,
+GPU Memory는 실제 브라우저/WebGL 자동화 환경에서 별도로 측정해야 한다.
 
 ---
 
@@ -1223,6 +1321,17 @@ Native Cesium Renderer          3D Tiles Adapter
 
 이 세 가지가 완성되면 단순 COPC Viewer와 명확한 차이가 생긴다.
 
+현재 상태는 다음과 같다.
+
+| 성공 기준 | 상태 | 근거 |
+|---|---|---|
+| COPC 직접 로딩 | 달성 | URL 기반 Header/Hierarchy/Node Range Streaming |
+| 안정적인 Streaming | 달성, 장시간 검증 필요 | additive LoD, 요청 취소·재정렬, 3단 Cache |
+| Cesium 친화 API | 달성 | 색상, Filter, Picking, Clock, EDL, Statistics |
+
+현재 자동 검증은 15개 Test File의 58개 Test, 전체 typecheck/build, Vite demo
+production build까지 포함한다.
+
 그 다음 단계에서 다음 기능을 추가하는 것이 좋다.
 
 - GPU Filtering
@@ -1280,3 +1389,35 @@ Analysis Engine
 > **CesiumJS용 Cloud Native Point Cloud Runtime**
 
 으로 잡는 것이 가장 경쟁력이 있다.
+
+---
+
+# 36. 2026-08-27 이후 우선순위
+
+## P0 — 정확성과 회귀 방지
+
+1. 실제 브라우저에서 additive LoD의 Point 누적·cohort 공개 검증
+2. Picking index와 source/render 좌표 일치 통합 테스트
+3. destroy 시 fetch, Worker, GPU resource 해제 테스트
+4. 국내 공공 COPC WKT1/WKT2 fixture 확대
+
+## P1 — 렌더 성능과 표현
+
+1. RGB/Intensity/Classification/Elevation을 하나의 GPU shader 경로로 통합
+2. Classification·Height filter를 uniform 기반으로 전환
+3. GPS Time처럼 실제 Point compact가 필요한 필터와 GPU filter의 혼합 정책 확정
+4. FPS, upload time, GPU memory를 포함한 browser benchmark 자동화
+
+## P2 — 배포 완성도
+
+1. Worker와 `laz-perf.wasm`의 소비자 무설정 bundle 또는 공식 Vite plugin
+2. 빈 프로젝트 tarball 설치·Worker 실행 검증
+3. CI의 test/typecheck/build/package/browser smoke 단계
+4. npm publish, CHANGELOG, semantic version 정책
+
+## P3 — 확장
+
+1. 토큰 기반 WKT1/WKT2 parser와 `BOUNDCRS` 처리
+2. Polygon Query와 measurement API
+3. Debug Octree 및 performance overlay
+4. 1–2GB 이상 COPC 장시간 stress test와 multi-COPC loading

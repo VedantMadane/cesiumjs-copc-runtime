@@ -39,19 +39,25 @@ async function handle(request: DecoderWorkerRequest): Promise<void> {
             request.dimensions,
             controller.signal,
           );
-          const node = cartesianTransform === undefined ? decoded : {
-            ...decoded,
-            cartesian: createCartesianPositions(decoded, cartesianTransform),
-          };
-          respond({
-            type: "success",
-            id: request.id,
-            node,
-            statistics: {
-              decodedNodes: 1,
-              decodeMilliseconds: performance.now() - started,
+          const node =
+            cartesianTransform === undefined
+              ? decoded
+              : {
+                  ...decoded,
+                  cartesian: createCartesianPositions(decoded, cartesianTransform),
+                };
+          respond(
+            {
+              type: "success",
+              id: request.id,
+              node,
+              statistics: {
+                decodedNodes: 1,
+                decodeMilliseconds: performance.now() - started,
+              },
             },
-          }, transferables(node));
+            transferables(node),
+          );
         } finally {
           controllers.delete(request.id);
         }

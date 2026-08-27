@@ -88,11 +88,14 @@ class WorkerClient {
   ): Promise<PointCloudNode> {
     this.active += 1;
     try {
-      const response = await this.#request({
-        type: "filter",
-        node,
-        ...(filter === undefined ? {} : { filter }),
-      }, signal);
+      const response = await this.#request(
+        {
+          type: "filter",
+          node,
+          ...(filter === undefined ? {} : { filter }),
+        },
+        signal,
+      );
       if (response.type !== "success" || !response.node) {
         throw new Error("Decoder worker returned an empty filtered node");
       }
@@ -111,20 +114,19 @@ class WorkerClient {
     this.#rejectAll(new DOMException("Decoder worker pool destroyed", "AbortError"));
   }
 
-  #request(
-    request: RpcRequest,
-    signal?: AbortSignal,
-  ): Promise<DecoderWorkerResponse> {
+  #request(request: RpcRequest, signal?: AbortSignal): Promise<DecoderWorkerResponse> {
     if (this.#destroyed) return Promise.reject(new Error("Decoder worker has been destroyed"));
     if (signal?.aborted) return Promise.reject(signal.reason);
     const id = this.#nextId++;
     return new Promise((resolve, reject) => {
       const abortSignal = signal;
-      const abort = abortSignal ? () => {
-        this.#pending.delete(id);
-        this.#worker.postMessage({ type: "cancel", id });
-        reject(abortSignal.reason);
-      } : undefined;
+      const abort = abortSignal
+        ? () => {
+            this.#pending.delete(id);
+            this.#worker.postMessage({ type: "cancel", id });
+            reject(abortSignal.reason);
+          }
+        : undefined;
       if (abort && abortSignal) abortSignal.addEventListener("abort", abort, { once: true });
       this.#pending.set(id, {
         resolve,
@@ -133,9 +135,10 @@ class WorkerClient {
         ...(abort === undefined ? {} : { abort }),
       });
       const message = { ...request, id } as DecoderWorkerRequest;
-      const transfer = message.type === "load" && message.node.bytes.buffer instanceof ArrayBuffer
-        ? [message.node.bytes.buffer]
-        : undefined;
+      const transfer =
+        message.type === "load" && message.node.bytes.buffer instanceof ArrayBuffer
+          ? [message.node.bytes.buffer]
+          : undefined;
       this.#worker.postMessage(message, transfer);
     });
   }
@@ -178,8 +181,9 @@ export class CopcDecodeWorkerPool {
     const workers = Array.from({ length: count }, () => new WorkerClient(factory));
     const pool = new CopcDecodeWorkerPool(workers);
     try {
-      await Promise.all(workers.map((worker) =>
-        worker.initialize(options.metadata, options.cartesianTransform)));
+      await Promise.all(
+        workers.map((worker) => worker.initialize(options.metadata, options.cartesianTransform)),
+      );
       return pool;
     } catch (error) {
       pool.destroy();
@@ -194,7 +198,8 @@ export class CopcDecodeWorkerPool {
   ): Promise<PointCloudNode> {
     if (this.#destroyed) throw new Error("Decoder worker pool has been destroyed");
     const worker = this.#workers.reduce((best, candidate) =>
-      candidate.active < best.active ? candidate : best);
+      candidate.active < best.active ? candidate : best,
+    );
     const result = await worker.decodeNode(node, dimensions, signal);
     this.#decodedNodes += result.statistics.decodedNodes;
     this.#decodeMilliseconds += result.statistics.decodeMilliseconds;
@@ -208,7 +213,8 @@ export class CopcDecodeWorkerPool {
   ): Promise<PointCloudNode> {
     if (this.#destroyed) throw new Error("Decoder worker pool has been destroyed");
     const worker = this.#workers.reduce((best, candidate) =>
-      candidate.active < best.active ? candidate : best);
+      candidate.active < best.active ? candidate : best,
+    );
     return worker.filterNode(node, filter, signal);
   }
 
@@ -224,7 +230,8 @@ export class CopcDecodeWorkerPool {
 }
 
 function defaultWorkerFactory(): WorkerLike {
-  if (typeof Worker === "undefined") throw new Error("Web Workers are not available in this environment");
+  if (typeof Worker === "undefined")
+    throw new Error("Web Workers are not available in this environment");
   return new Worker(new URL("./decoder-worker.js", import.meta.url), { type: "module" });
 }
 

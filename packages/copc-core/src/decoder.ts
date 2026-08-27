@@ -1,9 +1,5 @@
 import { Las, type Copc } from "copc";
-import type {
-  CompressedPointCloudNode,
-  PointAttributeArray,
-  PointCloudNode,
-} from "./types.js";
+import type { CompressedPointCloudNode, PointAttributeArray, PointCloudNode } from "./types.js";
 
 export interface CopcDecodingMetadata {
   readonly header: Pick<

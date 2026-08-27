@@ -29,14 +29,18 @@ export class IndexedDbRangeCache implements PersistentRangeCache {
     this.#database = openDatabase(options.databaseName ?? "cesiumjs-copc-range-cache");
   }
 
-  static get supported(): boolean { return typeof indexedDB !== "undefined"; }
+  static get supported(): boolean {
+    return typeof indexedDB !== "undefined";
+  }
 
   async get(key: string, begin: number, end: number): Promise<Uint8Array | undefined> {
     this.#assertOpen();
     const database = await this.#database;
     const cacheKey = makeKey(key, begin, end);
     const read = database.transaction(STORE_NAME, "readonly");
-    const entry = await requestResult<StoredRange | undefined>(read.objectStore(STORE_NAME).get(cacheKey));
+    const entry = await requestResult<StoredRange | undefined>(
+      read.objectStore(STORE_NAME).get(cacheKey),
+    );
     if (!entry) return undefined;
     const touch = database.transaction(STORE_NAME, "readwrite");
     touch.objectStore(STORE_NAME).put({ ...entry, lastAccess: Date.now() });

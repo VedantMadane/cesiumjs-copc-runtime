@@ -86,7 +86,10 @@ export class HttpRangeReader {
     this.#signal = options.signal;
     this.#coalesce = options.coalesce ?? true;
     this.#mergeGapBytes = nonNegative(options.mergeGapBytes ?? 16 * 1024, "mergeGapBytes");
-    this.#maximumMergedBytes = positive(options.maximumMergedBytes ?? 4 * 1024 * 1024, "maximumMergedBytes");
+    this.#maximumMergedBytes = positive(
+      options.maximumMergedBytes ?? 4 * 1024 * 1024,
+      "maximumMergedBytes",
+    );
     this.#batchDelayMilliseconds = nonNegative(
       options.batchDelayMilliseconds ?? 0,
       "batchDelayMilliseconds",
@@ -98,15 +101,33 @@ export class HttpRangeReader {
     this.#cacheKey = options.cacheKey ?? url;
   }
 
-  get requestCount(): number { return this.#requests; }
-  get logicalRequestCount(): number { return this.#logicalRequests; }
-  get cacheHitCount(): number { return this.#cacheHits; }
-  get persistentCacheHitCount(): number { return this.#persistentCacheHits; }
-  get coalescedRequestCount(): number { return this.#coalescedRequests; }
-  get bytesReceived(): number { return this.#bytesReceived; }
-  get networkMilliseconds(): number { return this.#networkMilliseconds; }
-  get cachedBytes(): number { return this.#cache.byteLength; }
-  get contentLength(): number | undefined { return this.#contentLength; }
+  get requestCount(): number {
+    return this.#requests;
+  }
+  get logicalRequestCount(): number {
+    return this.#logicalRequests;
+  }
+  get cacheHitCount(): number {
+    return this.#cacheHits;
+  }
+  get persistentCacheHitCount(): number {
+    return this.#persistentCacheHits;
+  }
+  get coalescedRequestCount(): number {
+    return this.#coalescedRequests;
+  }
+  get bytesReceived(): number {
+    return this.#bytesReceived;
+  }
+  get networkMilliseconds(): number {
+    return this.#networkMilliseconds;
+  }
+  get cachedBytes(): number {
+    return this.#cache.byteLength;
+  }
+  get contentLength(): number | undefined {
+    return this.#contentLength;
+  }
 
   readonly getter: Getter = (begin, end) => this.#get(begin, end);
 
@@ -165,7 +186,8 @@ export class HttpRangeReader {
   }
 
   #flush(): void {
-    const requests = this.#pending.splice(0)
+    const requests = this.#pending
+      .splice(0)
       .filter((request) => !request.settled)
       .sort((left, right) => left.begin - right.begin || left.end - right.end);
     const groups: PendingRange[][] = [];
@@ -178,7 +200,10 @@ export class HttpRangeReader {
       const begin = current[0]!.begin;
       const end = Math.max(...current.map((item) => item.end));
       const mergedEnd = Math.max(end, request.end);
-      if (request.begin <= end + this.#mergeGapBytes && mergedEnd - begin <= this.#maximumMergedBytes) {
+      if (
+        request.begin <= end + this.#mergeGapBytes &&
+        mergedEnd - begin <= this.#maximumMergedBytes
+      ) {
         current.push(request);
       } else {
         groups.push([request]);
@@ -233,7 +258,9 @@ export class HttpRangeReader {
       });
       this.#requests += 1;
       if (response.status !== 206) {
-        throw new Error(`Server did not honor byte range ${begin}-${end - 1}: HTTP ${response.status}`);
+        throw new Error(
+          `Server did not honor byte range ${begin}-${end - 1}: HTTP ${response.status}`,
+        );
       }
       const contentRange = response.headers.get("content-range");
       if (contentRange && !contentRange.startsWith(`bytes ${begin}-`)) {
@@ -343,15 +370,22 @@ class CompressedRangeCache {
   readonly #maximumBytes: number;
   #byteLength = 0;
 
-  constructor(maximumBytes: number) { this.#maximumBytes = maximumBytes; }
-  get byteLength(): number { return this.#byteLength; }
+  constructor(maximumBytes: number) {
+    this.#maximumBytes = maximumBytes;
+  }
+  get byteLength(): number {
+    return this.#byteLength;
+  }
 
   get(begin: number, end: number): Uint8Array | undefined {
     let matchKey: string | undefined;
     let match: CachedRange | undefined;
     for (const [key, entry] of this.#entries) {
-      if (entry.begin <= begin && entry.end >= end
-        && (!match || entry.end - entry.begin < match.end - match.begin)) {
+      if (
+        entry.begin <= begin &&
+        entry.end >= end &&
+        (!match || entry.end - entry.begin < match.end - match.begin)
+      ) {
         matchKey = key;
         match = entry;
       }

@@ -9,8 +9,14 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "!dist/**/*.test.*", "!dist/.tsbuildinfo"],
-  "scripts": { "build": "tsc -b" },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "build": "tsc -b"
+  },
   "dependencies": {
     "copc": "^0.0.9"
   },

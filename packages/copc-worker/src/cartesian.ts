@@ -45,9 +45,10 @@ export function createCartesianPositions(
     maxZ = Math.max(maxZ, z);
   }
 
-  const origin = node.pointCount === 0
-    ? [0, 0, 0] as const
-    : [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2] as const;
+  const origin =
+    node.pointCount === 0
+      ? ([0, 0, 0] as const)
+      : ([(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2] as const);
   const positions = new Float32Array(absolute.length);
   for (let index = 0; index < absolute.length; index += 3) {
     positions[index] = absolute[index]! - origin[0];
@@ -57,7 +58,11 @@ export function createCartesianPositions(
   return { origin, positions };
 }
 
-function geodeticToEcef(longitude: number, latitude: number, height: number): readonly [number, number, number] {
+function geodeticToEcef(
+  longitude: number,
+  latitude: number,
+  height: number,
+): readonly [number, number, number] {
   const longitudeRadians = longitude * RADIANS;
   const latitudeRadians = latitude * RADIANS;
   const sinLatitude = Math.sin(latitudeRadians);

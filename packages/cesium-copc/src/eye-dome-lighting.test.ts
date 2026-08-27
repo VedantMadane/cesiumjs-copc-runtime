@@ -21,7 +21,9 @@ function sceneStub() {
         return true;
       },
     },
-    requestRender() { renderRequests += 1; },
+    requestRender() {
+      renderRequests += 1;
+    },
   } as unknown as Scene;
   return {
     scene,

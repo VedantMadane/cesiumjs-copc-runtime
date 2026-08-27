@@ -27,10 +27,12 @@ describe("worker Cartesian positions", () => {
       positions: new Float64Array(),
       attributes: {},
     };
-    expect(createCartesianPositions(node, {
-      horizontalCrs: "EPSG:4326",
-      verticalUnitToMeters: 1,
-      verticalOffsetMeters: 0,
-    }).origin).toEqual([0, 0, 0]);
+    expect(
+      createCartesianPositions(node, {
+        horizontalCrs: "EPSG:4326",
+        verticalUnitToMeters: 1,
+        verticalOffsetMeters: 0,
+      }).origin,
+    ).toEqual([0, 0, 0]);
   });
 });

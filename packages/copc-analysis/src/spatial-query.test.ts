@@ -29,10 +29,18 @@ const pointNode: PointCloudNode = {
 };
 
 class FakeSource implements PointCloudSource {
-  metadata(): Promise<PointCloudMetadata> { throw new Error("unused"); }
-  root(): Promise<HierarchyEntry> { return Promise.resolve(rootEntry); }
-  getHierarchy(_node: NodeId): Promise<readonly HierarchyEntry[]> { return Promise.resolve([]); }
-  loadNode(): Promise<PointCloudNode> { return Promise.resolve(pointNode); }
+  metadata(): Promise<PointCloudMetadata> {
+    throw new Error("unused");
+  }
+  root(): Promise<HierarchyEntry> {
+    return Promise.resolve(rootEntry);
+  }
+  getHierarchy(_node: NodeId): Promise<readonly HierarchyEntry[]> {
+    return Promise.resolve([]);
+  }
+  loadNode(): Promise<PointCloudNode> {
+    return Promise.resolve(pointNode);
+  }
   destroy(): void {}
 }
 
@@ -52,10 +60,9 @@ describe("spatial query", () => {
   });
 
   it("computes height, intensity, and classification statistics", async () => {
-    const statistics = await computeStatistics(queryBounds(
-      new FakeSource(),
-      [0, 0, 0, 10, 10, 10] as Bounds3,
-    ));
+    const statistics = await computeStatistics(
+      queryBounds(new FakeSource(), [0, 0, 0, 10, 10, 10] as Bounds3),
+    );
     expect(statistics.pointCount).toBe(3);
     expect(statistics.height).toEqual({ minimum: 1, maximum: 8, mean: 13 / 3 });
     expect(statistics.intensity).toEqual({ minimum: 10, maximum: 30, mean: 20 });

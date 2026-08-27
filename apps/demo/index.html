@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="COPC 파일을 3D Tiles 변환 없이 CesiumJS에서 스트리밍하는 데모" />
+    <meta
+      name="description"
+      content="COPC 파일을 3D Tiles 변환 없이 CesiumJS에서 스트리밍하는 데모"
+    />
     <title>CesiumJS COPC Runtime</title>
   </head>
   <body>
@@ -24,10 +27,12 @@
           <span><kbd>Space</kbd> 누른 채 왼쪽 드래그</span>
         </div>
         <div class="camera-angle-panel">
-          <label>Heading <span id="camera-heading-value">0°</span>
+          <label
+            >Heading <span id="camera-heading-value">0°</span>
             <input id="camera-heading" type="range" min="0" max="359" step="1" value="0" />
           </label>
-          <label>Pitch <span id="camera-pitch-value">-29°</span>
+          <label
+            >Pitch <span id="camera-pitch-value">-29°</span>
             <input id="camera-pitch" type="range" min="-85" max="-5" step="1" value="-29" />
           </label>
         </div>
@@ -47,7 +52,8 @@
           <output id="status" role="status">Ready</output>
         </form>
         <div class="controls">
-          <label>Color
+          <label
+            >Color
             <select id="color">
               <option value="rgb">RGB</option>
               <option value="classification">Classification</option>
@@ -55,7 +61,8 @@
               <option value="elevation">Elevation</option>
             </select>
           </label>
-          <label>Filter
+          <label
+            >Filter
             <select id="filter">
               <option value="all">All points</option>
               <option value="ground">Ground</option>
@@ -64,55 +71,108 @@
               <option value="water">Water</option>
             </select>
           </label>
-          <label>Base map
+          <label
+            >Base map
             <select id="base-map">
               <option value="osm" selected>OpenStreetMap</option>
               <option value="none">Solid color</option>
             </select>
           </label>
-          <label>Surface
+          <label
+            >Surface
             <select id="terrain">
               <option value="ellipsoid" selected>WGS84 ellipsoid (h = 0)</option>
               <option value="world">Cesium World Terrain</option>
             </select>
           </label>
-          <label>Point size <span id="point-size-value">2 px</span>
+          <label
+            >Point size <span id="point-size-value">2 px</span>
             <input id="point-size" type="range" min="1" max="8" step="0.5" value="2" />
           </label>
-          <label>Opacity <span id="opacity-value">100%</span>
+          <label
+            >Opacity <span id="opacity-value">100%</span>
             <input id="opacity" type="range" min="0.1" max="1" step="0.05" value="1" />
           </label>
           <details class="performance-settings">
             <summary>Streaming / Performance</summary>
             <div class="performance-controls">
-              <label>Detail quality <span id="sse-value">1.5 SSE</span>
+              <label
+                >Detail quality <span id="sse-value">1.5 SSE</span>
                 <input id="sse" type="range" min="0.5" max="8" step="0.25" value="1.5" />
                 <small class="range-scale"><span>Detailed</span><span>Fast</span></small>
               </label>
-              <label>Point limit <span id="point-budget-value">1.50 M</span>
-                <input id="point-budget" type="range" min="250000" max="5000000" step="250000" value="1500000" />
+              <label
+                >Point limit <span id="point-budget-value">1.50 M</span>
+                <input
+                  id="point-budget"
+                  type="range"
+                  min="250000"
+                  max="5000000"
+                  step="250000"
+                  value="1500000"
+                />
                 <small class="range-scale"><span>250 K</span><span>5 M</span></small>
               </label>
             </div>
           </details>
-          <label class="toggle">Eye-dome lighting
+          <label class="toggle"
+            >Eye-dome lighting
             <input id="edl" type="checkbox" checked />
           </label>
-          <small class="surface-note">Ellipsoid는 실제 지면이 아닌 높이 0 기준면입니다. 실제 지표 비교에는 World Terrain을 사용하세요. Geoid 보정은 수직 기준이 명확할 때만 별도로 설정됩니다.</small>
+          <small class="surface-note"
+            >Ellipsoid는 실제 지면이 아닌 높이 0 기준면입니다. 실제 지표 비교에는 World Terrain을
+            사용하세요. Geoid 보정은 수직 기준이 명확할 때만 별도로 설정됩니다.</small
+          >
         </div>
         <dl class="stats">
-          <div><dt>Visible points</dt><dd id="visible-points">—</dd></div>
-          <div><dt>Visible nodes</dt><dd id="visible-nodes">—</dd></div>
-          <div><dt>Network</dt><dd id="network">—</dd></div>
-          <div><dt>HTTP total</dt><dd id="network-time">—</dd></div>
-          <div><dt>Requests</dt><dd id="requests">—</dd></div>
-          <div><dt>Logical ranges</dt><dd id="logical-ranges">—</dd></div>
-          <div><dt>Coalesced</dt><dd id="coalesced">—</dd></div>
-          <div><dt>Cache hits</dt><dd id="cache-hits">—</dd></div>
-          <div><dt>Decode total</dt><dd id="decode-time">—</dd></div>
-          <div><dt>Build total</dt><dd id="build-time">—</dd></div>
-          <div><dt>FPS</dt><dd id="fps">—</dd></div>
-          <div><dt>First point</dt><dd id="first-point">—</dd></div>
+          <div>
+            <dt>Visible points</dt>
+            <dd id="visible-points">—</dd>
+          </div>
+          <div>
+            <dt>Visible nodes</dt>
+            <dd id="visible-nodes">—</dd>
+          </div>
+          <div>
+            <dt>Network</dt>
+            <dd id="network">—</dd>
+          </div>
+          <div>
+            <dt>HTTP total</dt>
+            <dd id="network-time">—</dd>
+          </div>
+          <div>
+            <dt>Requests</dt>
+            <dd id="requests">—</dd>
+          </div>
+          <div>
+            <dt>Logical ranges</dt>
+            <dd id="logical-ranges">—</dd>
+          </div>
+          <div>
+            <dt>Coalesced</dt>
+            <dd id="coalesced">—</dd>
+          </div>
+          <div>
+            <dt>Cache hits</dt>
+            <dd id="cache-hits">—</dd>
+          </div>
+          <div>
+            <dt>Decode total</dt>
+            <dd id="decode-time">—</dd>
+          </div>
+          <div>
+            <dt>Build total</dt>
+            <dd id="build-time">—</dd>
+          </div>
+          <div>
+            <dt>FPS</dt>
+            <dd id="fps">—</dd>
+          </div>
+          <div>
+            <dt>First point</dt>
+            <dd id="first-point">—</dd>
+          </div>
         </dl>
       </section>
     </main>

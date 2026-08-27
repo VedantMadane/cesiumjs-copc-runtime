@@ -88,7 +88,9 @@ export class CopcEyeDomeLighting {
     scene.postProcessStages.add(this.#stage);
   }
 
-  get enabled(): boolean { return this.#stage.enabled; }
+  get enabled(): boolean {
+    return this.#stage.enabled;
+  }
 
   set enabled(value: boolean) {
     this.#assertAlive();
@@ -96,7 +98,9 @@ export class CopcEyeDomeLighting {
     this.#scene.requestRender();
   }
 
-  get strength(): number { return this.#strength; }
+  get strength(): number {
+    return this.#strength;
+  }
 
   set strength(value: number) {
     this.#assertAlive();
@@ -104,7 +108,9 @@ export class CopcEyeDomeLighting {
     this.#scene.requestRender();
   }
 
-  get radius(): number { return this.#radius; }
+  get radius(): number {
+    return this.#radius;
+  }
 
   set radius(value: number) {
     this.#assertAlive();
@@ -112,7 +118,9 @@ export class CopcEyeDomeLighting {
     this.#scene.requestRender();
   }
 
-  isDestroyed(): boolean { return this.#destroyed; }
+  isDestroyed(): boolean {
+    return this.#destroyed;
+  }
 
   destroy(): undefined {
     if (this.#destroyed) return undefined;

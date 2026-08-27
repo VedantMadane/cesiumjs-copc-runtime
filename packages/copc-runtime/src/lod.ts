@@ -80,25 +80,30 @@ export function selectLod(
 
   if (minimumCoverage > 0) {
     while (candidates.length > 0) {
-      candidates.sort((a, b) => b.error - a.error
-        || formatNodeId(a.node.id).localeCompare(formatNodeId(b.node.id)));
+      candidates.sort(
+        (a, b) =>
+          b.error - a.error || formatNodeId(a.node.id).localeCompare(formatNodeId(b.node.id)),
+      );
       const depth = candidates[0]!.node.id.depth;
       const cohort = candidates.filter((candidate) => candidate.node.id.depth === depth);
       for (const candidate of cohort) candidates.splice(candidates.indexOf(candidate), 1);
 
-      const refinements = cohort.map((candidate) => {
-        const children = childrenOf(candidate.node.id)?.filter((child) => view.isVisible(child.bounds)) ?? [];
-        const childPoints = children.reduce((total, child) => total + child.pointCount, 0);
-        return {
-          ...candidate,
-          children,
-          // COPC follows EPT's additive octree model: parent points are not
-          // duplicated in children, so refinement adds rather than replaces.
-          pointDelta: childPoints,
-          weight: Math.max(0, view.screenWeight?.(candidate.node.bounds) ?? 1),
-          refinementWeight: Math.max(0, view.refinementWeight?.(candidate.node.bounds) ?? 1),
-        };
-      }).filter((candidate) => candidate.children.length > 0);
+      const refinements = cohort
+        .map((candidate) => {
+          const children =
+            childrenOf(candidate.node.id)?.filter((child) => view.isVisible(child.bounds)) ?? [];
+          const childPoints = children.reduce((total, child) => total + child.pointCount, 0);
+          return {
+            ...candidate,
+            children,
+            // COPC follows EPT's additive octree model: parent points are not
+            // duplicated in children, so refinement adds rather than replaces.
+            pointDelta: childPoints,
+            weight: Math.max(0, view.screenWeight?.(candidate.node.bounds) ?? 1),
+            refinementWeight: Math.max(0, view.refinementWeight?.(candidate.node.bounds) ?? 1),
+          };
+        })
+        .filter((candidate) => candidate.children.length > 0);
 
       const totalWeight = refinements.reduce((total, candidate) => total + candidate.weight, 0);
       const chosen: typeof refinements = [];
@@ -113,9 +118,12 @@ export function selectLod(
       const relativeCoverage = totalWeight > 0 ? chosenWeight / totalWeight : 0;
       const viewportCoverage = view.screenWeight ? Math.min(1, chosenWeight) : 0;
       const containsFocus = chosen.some((candidate) => candidate.refinementWeight > 1.25);
-      if (relativeCoverage < minimumCoverage
-        && viewportCoverage < minimumCoverage
-        && !containsFocus) continue;
+      if (
+        relativeCoverage < minimumCoverage &&
+        viewportCoverage < minimumCoverage &&
+        !containsFocus
+      )
+        continue;
 
       const completeCohort = chosen.length === refinements.length;
       const fillsViewport = viewportCoverage >= minimumCoverage;
@@ -139,8 +147,9 @@ export function selectLod(
   }
 
   while (candidates.length > 0) {
-    candidates.sort((a, b) => b.error - a.error
-      || formatNodeId(a.node.id).localeCompare(formatNodeId(b.node.id)));
+    candidates.sort(
+      (a, b) => b.error - a.error || formatNodeId(a.node.id).localeCompare(formatNodeId(b.node.id)),
+    );
     const candidate = candidates.shift()!;
     const key = formatNodeId(candidate.node.id);
     if (!selected.has(key)) continue;
@@ -189,8 +198,9 @@ export function resolveReadyLod(
       nodesWithSelectedDescendants.add(formatNodeId(ancestorNodeId(node, depth)));
     }
   }
-  const selectedFrontier = selected.filter((candidate) =>
-    !nodesWithSelectedDescendants.has(formatNodeId(candidate)));
+  const selectedFrontier = selected.filter(
+    (candidate) => !nodesWithSelectedDescendants.has(formatNodeId(candidate)),
+  );
   const selectedKeys = new Set(selectedFrontier.map(formatNodeId));
   const childBranches = new Map<string, Map<string, NodeId>>();
   for (const node of selectedFrontier) {
@@ -235,14 +245,18 @@ export function resolveReadyLod(
           refinedWeight += branchWeight;
         }
       }
-      if (refinedWeight > 0
-        && refinableWeight > 0
-        && refinedWeight / refinableWeight < minimumCoverage
-        && (!options.weight || Math.min(1, refinedWeight) < minimumCoverage)) {
+      if (
+        refinedWeight > 0 &&
+        refinableWeight > 0 &&
+        refinedWeight / refinableWeight < minimumCoverage &&
+        (!options.weight || Math.min(1, refinedWeight) < minimumCoverage)
+      ) {
         const immediateChildren = Array.from(branches.values());
         return immediateChildren.every(isReady)
           ? immediateChildren
-          : (isReady(node) ? [node] : undefined);
+          : isReady(node)
+            ? [node]
+            : undefined;
       }
     }
 

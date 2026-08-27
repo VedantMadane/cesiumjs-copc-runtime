@@ -4,9 +4,10 @@ import { CopcSource, formatNodeId, type HierarchyEntry } from "cesiumjs-copc-cor
  * Reproducible streaming and decode benchmark for a remote COPC file.
  *
  * This measures the network and decode path in Node, deliberately not the renderer.
- * Node numbers are repeatable across machines in a way that WebGL frame timings are
- * not, so they make a defensible published baseline. Browser measurement follows a
- * separate protocol documented in `docs/benchmarks.md`.
+ * Excluding WebGL keeps the measurement reproducible within one environment. Results
+ * still depend on CPU, network location, and server behaviour, so they are not
+ * comparable across machines without the controls described in `docs/benchmarks.md`.
+ * Browser measurement follows the separate protocol in that document.
  */
 
 export interface BenchmarkOptions {

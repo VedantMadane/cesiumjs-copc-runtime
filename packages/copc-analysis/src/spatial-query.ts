@@ -9,8 +9,9 @@ export interface SpatialQueryOptions {
   /** Dimensions to decode. Narrowing this is the cheapest way to speed up a query. */
   readonly dimensions?: readonly string[];
   /**
-   * Stop descending past this octree depth. Since COPC nodes get denser with depth,
-   * capping depth trades point density for a bounded number of requests.
+   * Stop descending past this octree depth. Deeper levels subdivide the same extent
+   * into more nodes, so capping depth bounds how many requests a wide box can issue,
+   * at the cost of resolution.
    */
   readonly maximumDepth?: number;
   /**
@@ -18,7 +19,11 @@ export interface SpatialQueryOptions {
    * most of the file.
    */
   readonly pointLimit?: number;
-  /** Aborting rejects the generator between nodes, not mid-decode. */
+  /**
+   * Propagated into `loadNode`, so an abort is observed at the traversal checkpoints
+   * between nodes and at the abort checks the source and decoder perform around
+   * decompression. It does not interrupt a decompression call already in progress.
+   */
   readonly signal?: AbortSignal;
 }
 

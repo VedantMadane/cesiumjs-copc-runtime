@@ -17,9 +17,11 @@ const RADIANS = Math.PI / 180;
  * The origin exists to make `Float32` viable. Absolute ECEF coordinates are around
  * 6.4e6 metres, where a `Float32` step is roughly half a metre, so uploading absolute
  * positions to the GPU would visibly quantize the cloud. Subtracting a node-local
- * origin first brings the values down to the size of the node, where `Float32`
- * resolves well under a millimetre. The renderer adds `origin` back through the model
- * matrix.
+ * origin first brings the values down to the half-extent of the node, so the
+ * remaining `Float32` step scales with node size rather than with earth radius. For a
+ * node spanning tens of metres that step is well below a millimetre; a node spanning
+ * kilometres is correspondingly coarser. The renderer adds `origin` back through the
+ * model matrix.
  *
  * The origin is the centre of the node bounding box rather than its first point,
  * because a corner origin would leave one side of a large node near the precision

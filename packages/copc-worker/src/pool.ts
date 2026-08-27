@@ -226,8 +226,9 @@ export class CopcDecodeWorkerPool {
    *
    * The caller loses ownership of `node.bytes`: its buffer is transferred to the
    * worker and must not be read afterwards. Aborting through `signal` rejects with
-   * the signal reason and tells the worker to stop, but a decode that already
-   * finished still returns its result to the worker, so cancellation is best effort.
+   * the signal reason and tells the worker to stop, but a decode that has already
+   * finished still posts its result back to the pool, which drops it. Cancellation is
+   * therefore best effort.
    */
   async decodeNode(
     node: CompressedPointCloudNode,

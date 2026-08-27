@@ -1153,7 +1153,8 @@ GPU Memory          220 MB
 
 ### 현재 측정 기준선
 
-2026-08-24 Autzen Stadium 원격 COPC를 250,000 Point 목표로 측정한 결과다.
+2026-08-27 Apple M1 Pro(8 Core, 16 GiB), Node.js 22.17.0 환경에서 Autzen Stadium
+원격 COPC를 250,000 Point 목표로 cold-process 3회 측정한 중앙값이다.
 
 ```text
 Dataset             10,653,336 Points / 77.4 MiB
@@ -1163,11 +1164,15 @@ Network             3.0 MiB
 Physical Requests   8
 Logical Ranges      11
 Coalesced Ranges    3
-Decode Throughput   약 58,123 Points/s
+Metadata Load       약 1,376 ms
+Time to First Point 약 2,477 ms
+Decode Throughput   약 55,875 Points/s
 ```
 
-이는 Node decode와 Range 계층의 기준선이다. FPS, Time-to-first-meaningful-view,
-GPU Memory는 실제 브라우저/WebGL 자동화 환경에서 별도로 측정해야 한다.
+이는 Node decode와 Range 계층의 기준선이다. 3회 처리량 범위는
+`27,365`–`76,670 Points/s`였으며, 실제 전송량과 Node 수는 동일했다. FPS,
+Time-to-first-meaningful-view, GPU Memory는 실제 브라우저/WebGL 자동화 환경에서
+별도로 측정해야 한다.
 
 ---
 
@@ -1329,8 +1334,9 @@ Native Cesium Renderer          3D Tiles Adapter
 | 안정적인 Streaming | 달성, 장시간 검증 필요 | additive LoD, 요청 취소·재정렬, 3단 Cache |
 | Cesium 친화 API | 달성 | 색상, Filter, Picking, Clock, EDL, Statistics |
 
-현재 자동 검증은 15개 Test File의 58개 Test, 전체 typecheck/build, Vite demo
-production build까지 포함한다.
+현재 자동 검증은 15개 Test File의 58개 Test, coverage 하한, 전체
+typecheck/build, Vite demo production build, npm package dry-run, Playwright Chromium
+smoke test까지 포함한다. GitHub Actions는 Node.js 20·22에서 이를 반복한다.
 
 그 다음 단계에서 다음 기능을 추가하는 것이 좋다.
 
@@ -1419,8 +1425,8 @@ Analysis Engine
 
 1. Worker와 `laz-perf.wasm`의 소비자 무설정 bundle 또는 공식 Vite plugin
 2. 빈 프로젝트 tarball 설치·Worker 실행 검증
-3. CI의 test/typecheck/build/package/browser smoke 단계
-4. npm publish, CHANGELOG, semantic version 정책
+3. npm provenance와 tag 기반 publish 자동화
+4. 브라우저·Bundler compatibility matrix와 소비자 설치 검증
 
 ## P3 — 확장
 

@@ -868,8 +868,9 @@ CesiumJS
 
 ## 17.3 실제 COPC 검증
 
-Autzen Stadium 원격 COPC(`10,653,336` Points, 약 `77.4 MiB`)를 대상으로
-250,000 Point 목표 benchmark를 수행했다.
+2026-08-27 Apple M1 Pro(8 Core, 16 GiB), Node.js 22.17.0 환경에서 Autzen Stadium
+원격 COPC(`10,653,336` Points, 약 `77.4 MiB`)를 대상으로 250,000 Point 목표
+cold-process benchmark를 3회 수행했다.
 
 | 항목 | 측정값 |
 |---|---:|
@@ -879,27 +880,34 @@ Autzen Stadium 원격 COPC(`10,653,336` Points, 약 `77.4 MiB`)를 대상으로
 | 물리 Range Requests | 8 |
 | 논리 Range Requests | 11 |
 | Coalesced Ranges | 3 |
-| Decode Throughput | 약 58,123 Points/s |
+| Metadata Load 중앙값 | 약 1,376 ms |
+| Time to First Point 중앙값 | 약 2,477 ms |
+| Decode Throughput 중앙값 | 약 55,875 Points/s |
 
 전체 파일을 내려받지 않고 필요한 hierarchy와 Node chunk만 읽었으며, 서로 다른
-Octree 깊이의 8개 Node Point를 누적 디코딩해 additive 구조를 확인했다.
+Octree 깊이의 8개 Node Point를 누적 디코딩해 additive 구조를 확인했다. 실제
+전송량과 Node 수는 3회 모두 같았고, decode 처리량은 네트워크·실행 환경 변동을
+숨기지 않기 위해 `27,365`–`76,670 Points/s` 범위도 함께 기록했다.
 
 ## 17.4 자동 검증
 
 - 15개 Test File, 58개 Test 통과
+- Coverage 기준선 강제: Statement 45%, Branch 65%, Function 75%, Line 45%
 - 전체 TypeScript typecheck 통과
 - 전체 workspace build 통과
 - Vite demo production build 통과
+- Playwright Chromium viewer smoke test 통과
 - npm package dry-run 및 불필요한 test 산출물 제외 확인
+- GitHub Actions에서 Node.js 20·22 자동 검증
 
 ## 17.5 남은 우선 작업
 
-1. 실제 브라우저/WebGL 환경의 자동 통합 테스트
+1. 고정 Camera path 기반 브라우저/WebGL 성능 통합 테스트
 2. GPU shader 기반 색상·분류·높이 필터
 3. 토큰 기반 WKT1/WKT2 parser 강화
 4. Worker와 laz-perf WASM의 소비자 무설정 패키징
 5. 1–2GB 이상 COPC 장시간 Streaming/FPS/Memory benchmark
-6. CI, 빈 프로젝트 tarball 설치 검증, npm publish 자동화
+6. 빈 프로젝트 tarball 설치 검증과 npm publish 자동화
 
 ---
 

@@ -1,0 +1,33 @@
+name: Performance report
+description: Report streaming, decode, rendering, or memory behavior
+title: "[Performance]: "
+labels: [performance, triage]
+body:
+  - type: input
+    id: dataset
+    attributes:
+      label: Dataset
+      description: Public URL, file size, point count, CRS, and server host.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Hardware, OS, browser or Node version, network, and package commit/version.
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Runtime configuration
+      description: Point budget, SSE, workers, caches, dimensions, and benchmark command.
+    validations:
+      required: true
+  - type: textarea
+    id: measurements
+    attributes:
+      label: Measurements
+      description: Network bytes, time to first point, FPS, memory, and benchmark JSON.
+    validations:
+      required: true

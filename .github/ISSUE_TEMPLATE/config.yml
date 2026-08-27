@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage and design discussion
+    url: https://github.com/yangseungsang/cesiumjs-copc-runtime/discussions
+    about: Ask questions and discuss broader ideas.
+  - name: Security report
+    url: https://github.com/yangseungsang/cesiumjs-copc-runtime/security/policy
+    about: Report suspected vulnerabilities privately.

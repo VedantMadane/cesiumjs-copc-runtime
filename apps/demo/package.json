@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "cesiumjs-copc-core": "0.1.0",
-    "cesiumjs-copc": "0.1.0",
+    "cesiumjs-copc": "0.1.1",
     "cesium": "^1.144.0"
   },
   "devDependencies": {

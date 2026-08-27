@@ -6,8 +6,10 @@
 // instances, which destroys the type identity that passing objects between the
 // consumer's viewer and this runtime relies on.
 //
-// This check is deliberately offline and exact. Resolving the real dependency tree
-// would need a network install, and CI already runs one through `pack:check`.
+// This check is deliberately offline and exact. Resolving a consumer's real
+// dependency tree requires installing the packed artifact in a separate project;
+// `pack:check` only verifies archive composition, so it is not a substitute for this
+// manifest invariant.
 
 import { readFileSync } from "node:fs";
 

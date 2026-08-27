@@ -3,10 +3,11 @@
 3D Tiles 사전 변환 없이 COPC를 CesiumJS에서 직접 스트리밍하고 분석하는
 오픈소스 런타임입니다.
 
-[English](README.md) ·
-[라이브 데모](https://yangseungsang.github.io/cesiumjs-copc-runtime/) ·
-[시작하기](docs/getting-started.md) ·
-[아키텍처](docs/architecture.md) ·
+[English](README.md) |
+[라이브 데모](https://yangseungsang.github.io/cesiumjs-copc-runtime/) |
+[문서 전체](docs/README.md) |
+[시작하기](docs/getting-started.md) |
+[아키텍처](docs/architecture.md) |
 [벤치마크](docs/benchmarks.md)
 
 ![CesiumJS COPC Runtime 대표 이미지](docs/assets/cesiumjs-copc-runtime-hero.png)

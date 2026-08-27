@@ -1,8 +1,31 @@
 {
   "name": "cesiumjs-copc-worker",
   "version": "0.1.0",
+  "description": "Browser Worker pool for COPC LAZ decode and ECEF render coordinates",
+  "keywords": [
+    "copc",
+    "laz",
+    "point-cloud",
+    "web-worker",
+    "geospatial"
+  ],
+  "homepage": "https://github.com/yangseungsang/cesiumjs-copc-runtime#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yangseungsang/cesiumjs-copc-runtime.git",
+    "directory": "packages/copc-worker"
+  },
+  "bugs": {
+    "url": "https://github.com/yangseungsang/cesiumjs-copc-runtime/issues"
+  },
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

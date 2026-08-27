@@ -1,8 +1,32 @@
 {
   "name": "cesiumjs-copc",
   "version": "0.1.0",
+  "description": "Stream and render COPC point clouds directly in CesiumJS",
+  "keywords": [
+    "cesiumjs",
+    "copc",
+    "point-cloud",
+    "lidar",
+    "webgl",
+    "geospatial"
+  ],
+  "homepage": "https://yangseungsang.github.io/cesiumjs-copc-runtime/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yangseungsang/cesiumjs-copc-runtime.git",
+    "directory": "packages/cesium-copc"
+  },
+  "bugs": {
+    "url": "https://github.com/yangseungsang/cesiumjs-copc-runtime/issues"
+  },
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

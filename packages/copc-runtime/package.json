@@ -1,8 +1,31 @@
 {
   "name": "cesiumjs-copc-runtime",
   "version": "0.1.0",
+  "description": "Camera-driven COPC LOD, request scheduling, budgets, and caches",
+  "keywords": [
+    "cesiumjs",
+    "copc",
+    "point-cloud",
+    "lod",
+    "streaming"
+  ],
+  "homepage": "https://github.com/yangseungsang/cesiumjs-copc-runtime#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yangseungsang/cesiumjs-copc-runtime.git",
+    "directory": "packages/copc-runtime"
+  },
+  "bugs": {
+    "url": "https://github.com/yangseungsang/cesiumjs-copc-runtime/issues"
+  },
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

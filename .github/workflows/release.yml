@@ -22,16 +22,29 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run release:check
-      - name: Publish core
-        run: npm publish --workspace cesiumjs-copc-core --provenance --access public
-      - name: Publish runtime
-        run: npm publish --workspace cesiumjs-copc-runtime --provenance --access public
-      - name: Publish worker
-        run: npm publish --workspace cesiumjs-copc-worker --provenance --access public
-      - name: Publish analysis
-        run: npm publish --workspace cesiumjs-copc-analysis --provenance --access public
-      - name: Publish Cesium integration
-        run: npm publish --workspace cesiumjs-copc --provenance --access public
+      - name: Publish packages not already in the registry
+        shell: bash
+        run: |
+          publish_if_missing() {
+            local workspace="$1"
+            local package_name="$2"
+            local manifest="$3"
+            local package_version
+            package_version="$(node -p "require('./${manifest}').version")"
+
+            if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then
+              echo "Skipping ${package_name}@${package_version}: already published"
+              return
+            fi
+
+            npm publish --workspace "${workspace}" --provenance --access public
+          }
+
+          publish_if_missing cesiumjs-copc-core cesiumjs-copc-core packages/copc-core/package.json
+          publish_if_missing cesiumjs-copc-runtime cesiumjs-copc-runtime packages/copc-runtime/package.json
+          publish_if_missing cesiumjs-copc-worker cesiumjs-copc-worker packages/copc-worker/package.json
+          publish_if_missing cesiumjs-copc-analysis cesiumjs-copc-analysis packages/copc-analysis/package.json
+          publish_if_missing cesiumjs-copc cesiumjs-copc packages/cesium-copc/package.json
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

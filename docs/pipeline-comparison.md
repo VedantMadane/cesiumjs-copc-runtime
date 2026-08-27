@@ -7,66 +7,73 @@ explicit about which numbers were measured and which were not.
 Every row below is tagged:
 
 - **Measured** means this repository produced the number and the command is published.
-- **Structural** means the number follows from how each pipeline is defined, so no
-  measurement can change it.
-- **Lower bound** means the number is derived from a measurement of this project and is
-  the smallest value the other pipeline could possibly achieve.
+- **Structural** means it follows from how the two pipelines are defined, so no
+  measurement changes it.
+- **Configuration dependent** means it holds for common setups but can differ with the
+  converter, the tile format, or the operator's retention policy. The condition is
+  stated in the relevant section.
 - **Not measured** means we did not run it. No estimate is offered.
+
+No row measures an actual 3D Tiles conversion. That is the central limitation of this
+document, and the last section says what would fix it.
 
 The reference dataset throughout is the public Autzen Stadium COPC used by
 [the benchmark baseline](benchmarks.md): 10,653,336 points in 77.4 MiB.
 
 ## Summary
 
-| Axis                                | 3D Tiles pipeline                     | This project        | Basis       |
-| ----------------------------------- | ------------------------------------- | ------------------- | ----------- |
-| Preprocessing before first view     | Full-dataset conversion required      | None                | Structural  |
-| Floor on that conversion            | At least about 3 minutes 11 seconds   | 0 seconds           | Lower bound |
-| Copies of the data to store         | 2 (source plus tileset)               | 1 (source)          | Structural  |
-| Cost when the source is updated     | Reconvert the affected dataset        | None                | Structural  |
-| Bytes to reach the benchmark view   | Not measured                          | 3,150,366 (3.9%)    | Measured    |
-| Time to first point                 | Not measured                          | 2,477 ms            | Measured    |
-| Source attributes kept for analysis | Only dimensions selected at conversion| All LAS dimensions  | Structural  |
-| Coordinate precision for analysis   | Quantized at conversion               | Source `Float64`    | Structural  |
+| Axis                                | 3D Tiles pipeline                     | This project        | Basis                   |
+| ----------------------------------- | ------------------------------------- | ------------------- | ----------------------- |
+| Work before the first view          | Convert the whole dataset             | None                | Structural              |
+| Duration of that conversion         | Not measured                          | 0 seconds           | Not measured            |
+| Cost when the source is updated     | Reconvert the affected dataset        | None                | Structural              |
+| Bytes to reach the benchmark view   | Not measured                          | 3,150,366 (3.9%)    | Measured                |
+| Time to first point                 | Not measured                          | 2,477 ms            | Measured                |
+| Copies of the data to store         | Usually 2 (source plus tileset)       | 1 (source)          | Configuration dependent |
+| Source attributes kept for analysis | Those selected at conversion          | All LAS dimensions  | Configuration dependent |
+| Coordinate precision for analysis   | Depends on tile format and encoding   | Source `Float64`    | Configuration dependent |
 
-## Why the conversion floor is about 3 minutes
+## What conversion costs, and why we do not put a number on it
 
-Any converter that produces 3D Tiles from this file has to decode all 10,653,336
-points at least once. It cannot tile points it has not read. So the decode time for
-the whole file is a floor on the conversion time, before octree construction, tile
-serialization, and re-encoding are counted.
+The structural claim is about shape, not magnitude. Any converter that produces 3D
+Tiles from this file has to read all 10,653,336 points at least once, because it
+cannot tile points it has not read. So the conversion path pays a cost proportional to
+the entire dataset before anyone sees a single point, while the streaming path pays a
+cost proportional to the current view. That much holds regardless of which converter
+runs.
 
-This project measured a median decode throughput of 55,875 points/s on the baseline
-hardware:
+How long that conversion actually takes is a different question, and this repository
+cannot answer it. An earlier draft of this document extrapolated the benchmark's
+55,875 points/s to the full file and called the result a floor. That was wrong twice
+over, and the reasoning is recorded here so the mistake is not repeated:
 
-```text
-10,653,336 points / 55,875 points/s = 190.7 s = 3 min 11 s
-```
+1. `pointsPerSecond` in the benchmark is not decode throughput. It is
+   `decodedPoints / decodeMilliseconds`, where the interval covers fetching as well as
+   decoding and runs four node loads concurrently. It is an end-to-end streaming rate
+   for this runtime, not a measure of how fast points can be decoded.
+2. Even a correct decode rate would not give a floor. A production converter runs in
+   parallel across cores and could finish faster than any figure derived from this
+   measurement, and a value something can beat is not a lower bound.
 
-Three cautions apply, and they all matter:
+Quantifying the conversion side requires running a real converter. Until then this
+document states the shape of the difference and leaves the magnitude blank.
 
-1. The 55,875 points/s median came from decoding 269,241 points, not the full file.
-   Extrapolating a small sample to the whole file is approximate.
-2. The measurement is single-threaded Node.js decoding. Production converters run in
-   parallel and would beat this floor on multi-core hardware.
-3. The observed three-run range was 27,365 to 76,670 points/s, which is wide.
+## Storage
 
-So treat 3 minutes 11 seconds as an order-of-magnitude floor, not a benchmark of any
-particular converter. The point that survives all three cautions is the shape of the
-comparison: the conversion path pays a cost proportional to the entire dataset before
-anyone sees a single point, and the streaming path pays a cost proportional to the
-current view.
+A 3D Tiles pipeline emits a tileset, which is a second representation of the same
+points. In the common case both the tileset and the source exist, because the source
+is the archival copy and the input to any future reconversion, so the operator stores
+the data twice.
 
-## Why storage is doubled
+This is a policy outcome rather than a law. An operator who treats the tileset as the
+only artifact and discards the source stores one copy, accepting that the original
+measurements are gone. The claim in the summary table is therefore tagged as
+configuration dependent: it describes the usual archival setup, not every possible
+one.
 
-A 3D Tiles pipeline emits a tileset that is a second, separately stored representation
-of the same points. The source file cannot be deleted, because it is the archival copy
-and the input to any future reconversion. So both exist.
-
-The tileset size is not reported here because it depends on the converter, the chosen
-attributes, quantization settings, and the geometric error targets. We did not measure
-it and will not guess. The structural claim stands regardless of its size: the
-conversion path stores the data twice, and this project stores it once.
+Tileset size is not reported because it depends on the converter, the selected
+attributes, the encoding, and the geometric error targets. We did not measure it and
+will not guess.
 
 ## Why the view cost scales with the view, not the dataset
 
@@ -82,19 +89,23 @@ project removes.
 
 ## What the conversion path gives up
 
-Converting to 3D Tiles fixes two choices at conversion time that this project leaves
-open at query time.
+Converting to 3D Tiles fixes at conversion time two choices that this project leaves
+open at query time. Both depend on the converter and format in use, so neither is an
+absolute property of 3D Tiles.
 
 **Attributes.** The converter writes the dimensions it was configured to write. A
 dimension that was not selected is unavailable in the viewer, and recovering it means
-reconverting. This project reads dimensions from the source node on demand, so
-`Intensity`, `Classification`, GPS time, and the rest stay reachable, including for
+reconverting. Formats and metadata extensions differ in how much they can carry, so
+the practical limit is the conversion configuration rather than the specification.
+This project reads dimensions from the source node on demand, so `Intensity`,
+`Classification`, GPS time, and the rest stay reachable, including for
 `cesiumjs-copc-analysis` queries that never render.
 
-**Precision.** Tile formats quantize positions to keep tiles small. This project keeps
-source `Float64` coordinates for picking and analysis and derives node-relative ECEF
-`Float32` positions only for the GPU buffers, so rendering precision and analysis
-precision are decoupled.
+**Precision.** Tile formats commonly quantize positions to keep tiles small, and how
+much precision survives depends on the encoding chosen at conversion. This project
+keeps source `Float64` coordinates for picking and analysis and derives node-relative
+ECEF `Float32` positions only for the GPU buffers, so rendering precision and analysis
+precision are decoupled by construction rather than by configuration.
 
 ## Where the conversion path is still better
 

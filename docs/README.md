@@ -27,6 +27,7 @@ before changing it.
 | Document                                       | Read this when                                                     |
 | ---------------------------------------------- | ------------------------------------------------------------------ |
 | [Benchmarks](benchmarks.md)                    | Reproducing the published streaming and decode numbers             |
+| [Pipeline comparison](pipeline-comparison.md)  | Weighing direct streaming against converting to 3D Tiles           |
 | [Development](development.md)                  | Setting up the workspace and running the quality gates             |
 | [Roadmap](roadmap.md)                          | Checking what is planned before opening a feature request          |
 | [Contributing](../CONTRIBUTING.md)             | Preparing your first pull request                                  |

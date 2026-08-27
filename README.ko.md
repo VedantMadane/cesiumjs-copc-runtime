@@ -52,7 +52,27 @@
 수치는 실행 환경에 따라 달라질 수 있으므로 [측정 방법](docs/benchmarks.md)을 함께
 확인해야 합니다.
 
-## 실행
+## 설치
+
+Node.js 20 이상이 필요합니다.
+
+```sh
+npm install cesiumjs-copc cesium
+```
+
+CesiumJS는 peer dependency이므로 직접 설치하고 트리에 한 벌만 유지해야 합니다.
+이 런타임은 뷰어와 Cesium 객체를 주고받기 때문에, Cesium이 두 벌 설치되면 그
+교환이 의존하는 타입 동일성이 깨집니다.
+
+렌더러가 필요 없다면 필요한 패키지만 설치하면 됩니다. 아래 둘은 Cesium을
+요구하지 않습니다.
+
+```sh
+npm install cesiumjs-copc-core       # HTTP Range로 COPC 읽기
+npm install cesiumjs-copc-analysis   # 공간 질의와 통계
+```
+
+## 데모 실행
 
 ```sh
 git clone https://github.com/yangseungsang/cesiumjs-copc-runtime.git

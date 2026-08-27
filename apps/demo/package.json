@@ -1,5 +1,5 @@
 {
-  "name": "@copc-runtime/demo",
+  "name": "cesiumjs-copc-demo",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@copc-runtime/core": "0.1.0",
-    "@copc-runtime/cesium": "0.1.0",
+    "cesiumjs-copc-core": "0.1.0",
+    "cesiumjs-copc": "0.1.0",
     "cesium": "^1.144.0"
   },
   "devDependencies": {

@@ -6,7 +6,7 @@ import {
   formatNodeId,
   type HierarchyEntry,
   type NodeId,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 import { resolveReadyLod, screenSpaceError, selectLod, type ViewState } from "./lod.js";
 
 const rootBounds = [0, 0, 0, 8, 8, 8] as const;

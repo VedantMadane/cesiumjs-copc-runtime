@@ -2,7 +2,7 @@ import type {
   CartesianPointPositions,
   CartesianTransformDefinition,
   PointCloudNode,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 import proj4 from "proj4";
 
 const WGS84_A = 6_378_137;

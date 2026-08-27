@@ -26,7 +26,7 @@ export class IndexedDbRangeCache implements PersistentRangeCache {
     if (!Number.isFinite(this.#maximumBytes) || this.#maximumBytes < 0) {
       throw new RangeError("IndexedDB cache maximumBytes must be non-negative");
     }
-    this.#database = openDatabase(options.databaseName ?? "copc-runtime-range-cache");
+    this.#database = openDatabase(options.databaseName ?? "cesiumjs-copc-range-cache");
   }
 
   static get supported(): boolean { return typeof indexedDB !== "undefined"; }

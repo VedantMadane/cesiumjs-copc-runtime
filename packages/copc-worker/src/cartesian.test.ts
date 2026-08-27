@@ -1,4 +1,4 @@
-import type { PointCloudNode } from "@copc-runtime/core";
+import type { PointCloudNode } from "cesiumjs-copc-core";
 import { describe, expect, it } from "vitest";
 import { createCartesianPositions } from "./cartesian.js";
 

@@ -1,5 +1,5 @@
 {
-  "name": "@copc-runtime/core",
+  "name": "cesiumjs-copc-core",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",

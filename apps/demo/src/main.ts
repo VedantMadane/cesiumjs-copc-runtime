@@ -16,8 +16,8 @@ import {
   Viewer,
   type ScreenSpaceEventHandler,
 } from "cesium";
-import { CopcEyeDomeLighting, CopcPointCloud, type CopcColorMode } from "@copc-runtime/cesium";
-import { IndexedDbRangeCache } from "@copc-runtime/core";
+import { CopcEyeDomeLighting, CopcPointCloud, type CopcColorMode } from "cesiumjs-copc";
+import { IndexedDbRangeCache } from "cesiumjs-copc-core";
 import "./style.css";
 
 const sampleUrl = "https://s3.amazonaws.com/hobu-lidar/autzen-classified.copc.laz";

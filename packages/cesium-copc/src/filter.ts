@@ -2,7 +2,7 @@ import {
   matchesPointCloudNodeFilter,
   type PointCloudNode,
   type PointCloudNodeFilter,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 
 export type CopcPointFilter = PointCloudNodeFilter;
 

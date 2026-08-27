@@ -3,7 +3,7 @@ import type {
   PointAttributeArray,
   PointCloudNode,
   PointCloudSource,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 
 export interface SpatialQueryOptions {
   readonly dimensions?: readonly string[];

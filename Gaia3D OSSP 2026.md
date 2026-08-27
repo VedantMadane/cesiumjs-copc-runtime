@@ -217,7 +217,7 @@ COPC를 사용하면 다음과 같은 구조를 목표로 할 수 있다.
 따라서 프로젝트의 핵심 결과물은 다음과 같은 형태가 될 수 있다.
 
 ```text
-@project/cesium-copc
+cesiumjs-copc
 ```
 
 또는
@@ -842,12 +842,12 @@ CesiumJS
 
 | 패키지 | 현재 역할 |
 |---|---|
-| `@copc-runtime/core` | COPC Source, hierarchy, Range Reader, 압축/영속 Cache, point filter |
-| `@copc-runtime/runtime` | additive LoD, point budget, 요청 Queue, LRU, 기기 등급 |
-| `@copc-runtime/worker` | LAZ decode, attribute 추출, 상대 ECEF 렌더 좌표 생성 |
-| `@copc-runtime/cesium` | Cesium Primitive 연동, Picking, 색상, 필터, EDL |
-| `@copc-runtime/analysis` | 공간 범위 질의, 통계, 높이 프로파일 |
-| `@copc-runtime/benchmark` | 실제 원격 COPC 전송·decode benchmark |
+| `cesiumjs-copc-core` | COPC Source, hierarchy, Range Reader, 압축/영속 Cache, point filter |
+| `cesiumjs-copc-runtime` | additive LoD, point budget, 요청 Queue, LRU, 기기 등급 |
+| `cesiumjs-copc-worker` | LAZ decode, attribute 추출, 상대 ECEF 렌더 좌표 생성 |
+| `cesiumjs-copc` | Cesium Primitive 연동, Picking, 색상, 필터, EDL을 제공하는 주 패키지 |
+| `cesiumjs-copc-analysis` | 공간 범위 질의, 통계, 높이 프로파일 |
+| `cesiumjs-copc-benchmark` | 실제 원격 COPC 전송·decode benchmark |
 
 ## 17.2 핵심 달성 사항
 

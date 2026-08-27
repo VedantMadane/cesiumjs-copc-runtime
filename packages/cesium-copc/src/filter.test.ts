@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PointCloudNode } from "@copc-runtime/core";
+import type { PointCloudNode } from "cesiumjs-copc-core";
 import { matchesPointFilter } from "./filter.js";
 
 const node: PointCloudNode = {

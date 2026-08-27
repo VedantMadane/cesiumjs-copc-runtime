@@ -4,7 +4,7 @@ import type {
   CartesianTransformDefinition,
   PointCloudNodeFilter,
   PointCloudNode,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 import type { DecoderWorkerRequest, DecoderWorkerResponse, WorkerStatistics } from "./protocol.js";
 
 export interface WorkerLike {

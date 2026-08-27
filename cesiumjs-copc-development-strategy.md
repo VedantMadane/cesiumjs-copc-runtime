@@ -1346,7 +1346,14 @@ production build까지 포함한다.
 
 # 35. 프로젝트 포지셔닝
 
-프로젝트 이름 자체보다 중요한 것은 정체성이다.
+프로젝트의 공식 이름은 **CesiumJS COPC Runtime**으로 정한다. 저장소 이름은
+`cesiumjs-copc-runtime`, 사용자가 설치하는 주 npm 패키지는 `cesiumjs-copc`를
+사용한다. 내부 기능은 `cesiumjs-copc-core`, `cesiumjs-copc-runtime`,
+`cesiumjs-copc-worker`, `cesiumjs-copc-analysis` 패키지로 분리한다.
+
+이 이름은 CesiumJS와 COPC의 연결을 바로 드러내면서도, 단순 Provider가 아닌
+실행 시점의 streaming·LoD·rendering·analysis 계층이라는 정체성을 담는다.
+이 프로젝트는 독립 오픈소스 프로젝트이며 Cesium의 공식 프로젝트가 아니다.
 
 단순한:
 
@@ -1356,7 +1363,7 @@ cesium-copc
 
 라이브러리보다는 다음 개념으로 설명하는 것이 좋다.
 
-> **COPC Runtime for CesiumJS**
+> **CesiumJS COPC Runtime**
 
 TIFFImageryProvider와 비교하면 다음과 같다.
 
@@ -1365,7 +1372,7 @@ TIFFImageryProvider
     ↓
 COG → Cesium Imagery
 
-COPC Runtime
+CesiumJS COPC Runtime
     ↓
 COPC → Cesium Point Cloud
 ```

@@ -1,4 +1,4 @@
-import type { PointCloudSource } from "@copc-runtime/core";
+import type { PointCloudSource } from "cesiumjs-copc-core";
 import { queryBounds, type SpatialQueryOptions } from "./spatial-query.js";
 
 export type Point2 = readonly [x: number, y: number];

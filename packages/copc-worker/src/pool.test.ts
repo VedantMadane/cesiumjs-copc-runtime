@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CopcDecodingMetadata, PointCloudNode } from "@copc-runtime/core";
+import type { CopcDecodingMetadata, PointCloudNode } from "cesiumjs-copc-core";
 import { CopcDecodeWorkerPool, type WorkerLike } from "./pool.js";
 import type { DecoderWorkerRequest, DecoderWorkerResponse } from "./protocol.js";
 

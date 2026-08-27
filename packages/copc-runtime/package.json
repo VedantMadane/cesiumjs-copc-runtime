@@ -1,5 +1,5 @@
 {
-  "name": "@copc-runtime/runtime",
+  "name": "cesiumjs-copc-runtime",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
@@ -12,6 +12,6 @@
   "files": ["dist", "!dist/**/*.test.*", "!dist/.tsbuildinfo"],
   "scripts": { "build": "tsc -b" },
   "dependencies": {
-    "@copc-runtime/core": "0.1.0"
+    "cesiumjs-copc-core": "0.1.0"
   }
 }

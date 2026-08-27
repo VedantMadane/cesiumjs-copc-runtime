@@ -4,7 +4,7 @@ import {
   type Bounds3,
   type HierarchyEntry,
   type NodeId,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 
 export interface ViewState {
   readonly viewportHeight: number;

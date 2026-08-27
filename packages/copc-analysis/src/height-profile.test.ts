@@ -5,7 +5,7 @@ import type {
   PointCloudMetadata,
   PointCloudNode,
   PointCloudSource,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 import { computeHeightProfile } from "./height-profile.js";
 
 const root: HierarchyEntry = {

@@ -4,7 +4,7 @@ import type {
   CopcDecodingMetadata,
   PointCloudNodeFilter,
   PointCloudNode,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 
 export interface WorkerStatistics {
   readonly decodedNodes: number;

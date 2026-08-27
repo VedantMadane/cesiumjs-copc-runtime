@@ -1,5 +1,5 @@
 {
-  "name": "@copc-runtime/cesium",
+  "name": "cesiumjs-copc",
   "version": "0.1.0",
   "type": "module",
   "license": "MIT",
@@ -18,9 +18,9 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@copc-runtime/core": "0.1.0",
-    "@copc-runtime/runtime": "0.1.0",
-    "@copc-runtime/worker": "0.1.0",
+    "cesiumjs-copc-core": "0.1.0",
+    "cesiumjs-copc-runtime": "0.1.0",
+    "cesiumjs-copc-worker": "0.1.0",
     "cesium": "^1.144.0",
     "egm96-universal": "^1.1.1",
     "proj4": "^2.19.10"

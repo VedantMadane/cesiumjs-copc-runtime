@@ -1,5 +1,5 @@
 import { Cartesian3 } from "cesium";
-import type { CartesianTransformDefinition } from "@copc-runtime/core";
+import type { CartesianTransformDefinition } from "cesiumjs-copc-core";
 import { egm96ToEllipsoid } from "egm96-universal";
 import proj4 from "proj4";
 import {

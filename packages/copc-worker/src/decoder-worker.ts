@@ -6,7 +6,7 @@ import {
   type CopcDecodingMetadata,
   type CartesianTransformDefinition,
   type PointCloudNode,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 import { createCartesianPositions } from "./cartesian.js";
 import type { DecoderWorkerRequest, DecoderWorkerResponse } from "./protocol.js";
 

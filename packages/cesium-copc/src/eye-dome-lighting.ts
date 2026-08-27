@@ -77,7 +77,7 @@ export class CopcEyeDomeLighting {
     this.#strength = positiveFinite(options.strength ?? 1, "strength");
     this.#radius = positiveFinite(options.radius ?? 1, "radius");
     this.#stage = new PostProcessStage({
-      name: "copc-runtime-eye-dome-lighting",
+      name: "cesiumjs-copc-eye-dome-lighting",
       fragmentShader: EYE_DOME_LIGHTING_FRAGMENT_SHADER,
       uniforms: {
         strength: () => this.#strength,

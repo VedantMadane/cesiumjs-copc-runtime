@@ -1,5 +1,5 @@
 {
-  "name": "copc-runtime",
+  "name": "cesiumjs-copc-workspace",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
@@ -12,9 +12,9 @@
     "build": "tsc -b",
     "clean": "tsc -b --clean",
     "test": "vitest run",
-    "demo": "npm run dev --workspace @copc-runtime/demo",
-    "demo:build": "npm run build --workspace @copc-runtime/demo",
-    "benchmark": "npm run build --workspace @copc-runtime/benchmark && node packages/benchmark/dist/cli.js",
+    "demo": "npm run dev --workspace cesiumjs-copc-demo",
+    "demo:build": "npm run build --workspace cesiumjs-copc-demo",
+    "benchmark": "npm run build --workspace cesiumjs-copc-benchmark && node packages/benchmark/dist/cli.js",
     "typecheck": "tsc -b --pretty false"
   },
   "devDependencies": {

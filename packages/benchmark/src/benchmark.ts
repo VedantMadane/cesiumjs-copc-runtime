@@ -1,4 +1,4 @@
-import { CopcSource, formatNodeId, type HierarchyEntry } from "@copc-runtime/core";
+import { CopcSource, formatNodeId, type HierarchyEntry } from "cesiumjs-copc-core";
 
 export interface BenchmarkOptions {
   readonly targetPoints?: number;

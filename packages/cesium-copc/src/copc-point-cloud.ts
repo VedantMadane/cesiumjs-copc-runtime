@@ -28,7 +28,7 @@ import {
   type NodeId,
   type PointCloudNode,
   type RangeReaderOptions,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 import {
   LruCache,
   RequestQueue,
@@ -38,8 +38,8 @@ import {
   selectLod,
   type DeviceTier,
   type ViewState,
-} from "@copc-runtime/runtime";
-import { CopcDecodeWorkerPool } from "@copc-runtime/worker";
+} from "cesiumjs-copc-runtime";
+import { CopcDecodeWorkerPool } from "cesiumjs-copc-worker";
 import {
   createCoordinateTransformDefinition,
   createCoordinateTransformer,

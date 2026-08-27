@@ -1,4 +1,4 @@
-import type { PointCloudNode } from "@copc-runtime/core";
+import type { PointCloudNode } from "cesiumjs-copc-core";
 
 export interface PointCloudStatisticsResult {
   readonly pointCount: number;

@@ -6,7 +6,7 @@ import type {
   PointCloudMetadata,
   PointCloudNode,
   PointCloudSource,
-} from "@copc-runtime/core";
+} from "cesiumjs-copc-core";
 import { boundsIntersect, queryBounds } from "./spatial-query.js";
 import { computeStatistics } from "./statistics.js";
 

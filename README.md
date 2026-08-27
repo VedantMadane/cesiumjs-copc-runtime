@@ -1,16 +1,18 @@
-# COPC Runtime for CesiumJS
+# CesiumJS COPC Runtime
 
-Cloud-native COPC streaming for CesiumJS without a 3D Tiles preprocessing step.
+Cloud-native COPC streaming and analysis for CesiumJS without 3D Tiles preprocessing.
+
+> CesiumJS COPC Runtime is an independent open-source project and is not an official Cesium project.
 
 > Status: working MVP. The repository implements coalesced HTTP range streaming, COPC hierarchy and Worker LAZ decoding, camera-driven LOD and point budgets, three-stage caching, source-CRS analysis, and Cesium GPU buffer rendering.
 
 ## Packages
 
-- `@copc-runtime/core`: COPC source, range reader, hierarchy and decoded point types
-- `@copc-runtime/runtime`: screen-space LOD, point-budget selection, request queue and byte-sized LRU cache
-- `@copc-runtime/cesium`: CesiumJS primitive-style integration
-- `@copc-runtime/worker`: transferable browser Worker pool for LAZ decoding
-- `@copc-runtime/analysis`: streaming bounds queries and point-cloud statistics
+- `cesiumjs-copc`: CesiumJS primitive-style integration and the main package
+- `cesiumjs-copc-core`: COPC source, range reader, hierarchy and decoded point types
+- `cesiumjs-copc-runtime`: screen-space LOD, point-budget selection, request queue and byte-sized LRU cache
+- `cesiumjs-copc-worker`: transferable browser Worker pool for LAZ decoding
+- `cesiumjs-copc-analysis`: streaming bounds queries and point-cloud statistics
 
 ## Viewer behavior and design choices
 
@@ -53,8 +55,8 @@ raw COPC data spatially correct and visually coherent while it streams:
 
 ```ts
 import { Viewer } from "cesium";
-import { CopcPointCloud } from "@copc-runtime/cesium";
-import { IndexedDbRangeCache } from "@copc-runtime/core";
+import { CopcPointCloud } from "cesiumjs-copc";
+import { IndexedDbRangeCache } from "cesiumjs-copc-core";
 
 const viewer = new Viewer("cesiumContainer");
 const persistentCache = IndexedDbRangeCache.supported
@@ -129,7 +131,7 @@ The report includes metadata load, time to first point, decode throughput, HTTP 
 Spatial queries operate directly in the source COPC CRS and return an async stream, so callers can process large areas without first materializing the complete result:
 
 ```ts
-import { queryBounds, computeStatistics } from "@copc-runtime/analysis";
+import { queryBounds, computeStatistics } from "cesiumjs-copc-analysis";
 
 const nodes = queryBounds(source, [minX, minY, minZ, maxX, maxY, maxZ], {
   pointLimit: 2_000_000,

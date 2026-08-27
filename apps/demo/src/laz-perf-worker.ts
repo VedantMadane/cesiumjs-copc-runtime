@@ -1,5 +1,6 @@
 import { createLazPerf as createWebLazPerf } from "laz-perf/lib/web/index.js";
 import { createLazPerf as createWorkerLazPerf } from "laz-perf/lib/worker/index.js";
+import lazPerfWasmUrl from "laz-perf/lib/worker/laz-perf.wasm?url";
 
 type LazPerfOptions = Parameters<typeof createWorkerLazPerf>[0];
 
@@ -16,7 +17,7 @@ export function createLazPerf(options?: LazPerfOptions) {
     ...overrides,
     locateFile(path: string, prefix: string) {
       if (path.endsWith(".wasm")) {
-        return new URL("/laz-perf.wasm", globalThis.location.href).href;
+        return lazPerfWasmUrl;
       }
       return fallbackLocateFile?.(path, prefix) ?? `${prefix}${path}`;
     },

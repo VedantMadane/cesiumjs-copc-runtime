@@ -1,5 +1,9 @@
 # Gaia3D OSSP 2026 과제 요구사항 정리
 
+> 구현 현황 기준일: **2026-08-27**
+> 현재 저장소는 요구사항 분석 단계를 넘어 COPC 직접 스트리밍 MVP, 분석 API,
+> 국내 좌표계 지원, Worker 렌더 좌표 생성을 구현한 상태다.
+
 ## 1. 과제명
 
 **COPC 데이터의 CesiumJS 가시화 기술 개발**
@@ -124,6 +128,11 @@ COPC의 주요 특징은 다음과 같다.
 
 COPC 데이터는 계층적인 해상도를 가진다.
 
+COPC는 EPT와 같은 **additive octree** 구조를 사용한다. 하위 Node의 Point는
+상위 Node의 Point를 대체하거나 복제하지 않는다. 따라서 특정 영역의 해상도를
+높일 때는 상위 Node를 제거하는 것이 아니라, 루트부터 선택 깊이까지의 Point를
+누적해서 표시해야 한다.
+
 멀리 있는 영역은 적은 수의 Point를 사용하고, 가까운 영역은 더 많은 Point를 사용할 수 있다.
 
 ```text
@@ -133,13 +142,13 @@ Level 0
 
       ↓ Zoom
 
-Level 1
-● ● ● ● ● ● ● ●
+Level 0 + Level 1
+● ● ● ● + ● ● ● ●
 
       ↓ Zoom
 
-Level 2
-●●●●●●●●●●●●●●
+Level 0 + Level 1 + Level 2
+●●●● + ●●●● + ●●●●●●
 ```
 
 따라서 화면에 필요하지 않은 고해상도 데이터를 모두 가져올 필요가 없다.
@@ -277,6 +286,20 @@ Screen Space Error
 ```
 
 와 유사한 판단 기준을 COPC Octree에 적용할 수 있다.
+
+이때 선택 결과는 일반적인 raster tile의 replacement frontier가 아니라 다음과
+같은 additive display set이어야 한다.
+
+```text
+선택 깊이 2
+
+Level 0 Node
+  + 보이는 Level 1 Node
+  + 보이는 Level 2 Node
+```
+
+Point Budget 역시 자식이 부모를 대체한다고 계산하지 않고, 추가되는 자식 Point를
+기존 상위 Node Point에 더한 누적 값으로 계산해야 한다.
 
 ---
 
@@ -664,7 +687,8 @@ CesiumJS
 ### Phase 4 — LoD
 
 - Camera Distance 또는 Screen Space 기반 LoD
-- Parent / Child Node 전환
+- Additive Parent / Child Node 누적
+- Child cohort 준비 상태 기반 점진적 공개
 - Point Budget
 
 ### Phase 5 — 최적화
@@ -695,6 +719,11 @@ MVP 이후에는 다음 기능을 확장할 수 있다.
 - EDL(Eye Dome Lighting) 등의 Point Cloud 표현 개선
 
 다만 이러한 기능은 **COPC 데이터를 CesiumJS에서 직접 스트리밍하고 가시화하는 핵심 기능을 완성한 이후** 확장하는 것이 좋다.
+
+2026-08-27 현재 Point Size, RGB/Intensity/Classification/Elevation 색상,
+투명도, Classification·Intensity·Elevation·GPS Time 필터, Picking, Point 정보,
+Point Budget, 3단 Cache, EDL, 공간 질의, 높이 프로파일, 통계 기능까지 구현됐다.
+GPU shader 기반 일반 필터와 Debug Octree Overlay는 후속 작업이다.
 
 ---
 
@@ -804,6 +833,73 @@ CesiumJS
 > **COPC의 Octree/Streaming 구조를 CesiumJS의 Camera/Rendering 구조와 연결하는 것**
 
 이라고 볼 수 있다.
+
+---
+
+# 17. 현재 구현 현황과 검증 결과
+
+## 17.1 구현된 패키지
+
+| 패키지 | 현재 역할 |
+|---|---|
+| `@copc-runtime/core` | COPC Source, hierarchy, Range Reader, 압축/영속 Cache, point filter |
+| `@copc-runtime/runtime` | additive LoD, point budget, 요청 Queue, LRU, 기기 등급 |
+| `@copc-runtime/worker` | LAZ decode, attribute 추출, 상대 ECEF 렌더 좌표 생성 |
+| `@copc-runtime/cesium` | Cesium Primitive 연동, Picking, 색상, 필터, EDL |
+| `@copc-runtime/analysis` | 공간 범위 질의, 통계, 높이 프로파일 |
+| `@copc-runtime/benchmark` | 실제 원격 COPC 전송·decode benchmark |
+
+## 17.2 핵심 달성 사항
+
+- COPC Header·Info VLR·Hierarchy page 지연 로딩
+- HTTP `206 Partial Content` 검증과 Range Request
+- 인접 Range coalescing, 메모리 Cache, IndexedDB Cache
+- Camera/SSE/Point Budget 기반 additive LoD
+- 카메라 중심 우선순위, 요청 재정렬, 화면 밖 요청 취소
+- 자식 cohort가 준비될 때까지 상위 Node를 유지하는 안정적 스트리밍
+- Worker Pool 기반 LAZ decode와 Transferable 사용
+- Worker 내부 CRS 투영 및 Node 원점 상대 ECEF `Float32` 렌더 좌표 생성
+- Picking·분석용 source CRS `Float64` 좌표와 LAS Attribute 보존
+- WKT compound CRS의 수평/수직 단위 분리
+- `EPSG:5173`–`5188`, `EPSG:2096`–`2098`, `EPSG:4737` 국내 좌표계 등록
+- 누락된 Bessel datum shift 보완과 명시적 EGM96 보정
+- low/medium/high 기기 등급별 Point·Memory·Worker·Request 기본 예산
+- Picking, GPS Time–Cesium Clock 연결, EDL, 공간 질의와 높이 프로파일
+
+## 17.3 실제 COPC 검증
+
+Autzen Stadium 원격 COPC(`10,653,336` Points, 약 `77.4 MiB`)를 대상으로
+250,000 Point 목표 benchmark를 수행했다.
+
+| 항목 | 측정값 |
+|---|---:|
+| Decoded Nodes | 8 |
+| Decoded Points | 269,241 |
+| 실제 전송량 | 약 3.0 MiB |
+| 물리 Range Requests | 8 |
+| 논리 Range Requests | 11 |
+| Coalesced Ranges | 3 |
+| Decode Throughput | 약 58,123 Points/s |
+
+전체 파일을 내려받지 않고 필요한 hierarchy와 Node chunk만 읽었으며, 서로 다른
+Octree 깊이의 8개 Node Point를 누적 디코딩해 additive 구조를 확인했다.
+
+## 17.4 자동 검증
+
+- 15개 Test File, 58개 Test 통과
+- 전체 TypeScript typecheck 통과
+- 전체 workspace build 통과
+- Vite demo production build 통과
+- npm package dry-run 및 불필요한 test 산출물 제외 확인
+
+## 17.5 남은 우선 작업
+
+1. 실제 브라우저/WebGL 환경의 자동 통합 테스트
+2. GPU shader 기반 색상·분류·높이 필터
+3. 토큰 기반 WKT1/WKT2 parser 강화
+4. Worker와 laz-perf WASM의 소비자 무설정 패키징
+5. 1–2GB 이상 COPC 장시간 Streaming/FPS/Memory benchmark
+6. CI, 빈 프로젝트 tarball 설치 검증, npm publish 자동화
 
 ---
 

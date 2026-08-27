@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
+  "description": "Cloud-native COPC streaming and analysis for CesiumJS",
+  "homepage": "https://yangseungsang.github.io/cesiumjs-copc-runtime/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yangseungsang/cesiumjs-copc-runtime.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yangseungsang/cesiumjs-copc-runtime/issues"
+  },
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -21,6 +30,7 @@
     "demo:build": "npm run build --workspace cesiumjs-copc-demo",
     "benchmark": "npm run build --workspace cesiumjs-copc-benchmark && node packages/benchmark/dist/cli.js",
     "pack:check": "npm pack --dry-run --workspace cesiumjs-copc --workspace cesiumjs-copc-core --workspace cesiumjs-copc-runtime --workspace cesiumjs-copc-worker --workspace cesiumjs-copc-analysis",
+    "release:check": "npm run lint && npm run format:check && npm test && npm run test:coverage && npm run typecheck && npm run build && npm run demo:build && npm run pack:check",
     "typecheck": "tsc -b --pretty false"
   },
   "devDependencies": {

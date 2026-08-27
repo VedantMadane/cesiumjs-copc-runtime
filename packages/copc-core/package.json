@@ -1,8 +1,31 @@
 {
   "name": "cesiumjs-copc-core",
   "version": "0.1.0",
+  "description": "COPC hierarchy, byte-range loading, caches, and decoded point types",
+  "keywords": [
+    "copc",
+    "point-cloud",
+    "lidar",
+    "range-request",
+    "geospatial"
+  ],
+  "homepage": "https://github.com/yangseungsang/cesiumjs-copc-runtime#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yangseungsang/cesiumjs-copc-runtime.git",
+    "directory": "packages/copc-core"
+  },
+  "bugs": {
+    "url": "https://github.com/yangseungsang/cesiumjs-copc-runtime/issues"
+  },
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

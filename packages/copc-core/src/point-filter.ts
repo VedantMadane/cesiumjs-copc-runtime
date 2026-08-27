@@ -51,6 +51,7 @@ export function filterPointCloudNode(
 
   const positions = new Float64Array(indices.length * 3);
   const colors = node.colors ? new Uint8Array(indices.length * 3) : undefined;
+  const cartesianPositions = node.cartesian ? new Float32Array(indices.length * 3) : undefined;
   for (let target = 0; target < indices.length; target += 1) {
     const source = indices[target]!;
     positions[target * 3] = node.positions[source * 3]!;
@@ -60,6 +61,11 @@ export function filterPointCloudNode(
       colors[target * 3] = node.colors[source * 3]!;
       colors[target * 3 + 1] = node.colors[source * 3 + 1]!;
       colors[target * 3 + 2] = node.colors[source * 3 + 2]!;
+    }
+    if (cartesianPositions && node.cartesian) {
+      cartesianPositions[target * 3] = node.cartesian.positions[source * 3]!;
+      cartesianPositions[target * 3 + 1] = node.cartesian.positions[source * 3 + 1]!;
+      cartesianPositions[target * 3 + 2] = node.cartesian.positions[source * 3 + 2]!;
     }
   }
 
@@ -76,6 +82,9 @@ export function filterPointCloudNode(
     pointCount: indices.length,
     positions,
     ...(colors === undefined ? {} : { colors }),
+    ...(cartesianPositions === undefined || node.cartesian === undefined ? {} : {
+      cartesian: { origin: node.cartesian.origin, positions: cartesianPositions },
+    }),
     attributes,
   };
 }

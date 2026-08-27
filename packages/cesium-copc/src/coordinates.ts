@@ -1,6 +1,12 @@
 import { Cartesian3 } from "cesium";
+import type { CartesianTransformDefinition } from "@copc-runtime/core";
 import { egm96ToEllipsoid } from "egm96-universal";
 import proj4 from "proj4";
+import {
+  EPSG_DEFINITIONS,
+  normalizeEpsg,
+  registerEpsgDefinitions,
+} from "./epsg-definitions.js";
 
 export type ToCartesian = (x: number, y: number, z: number, result?: Cartesian3) => Cartesian3;
 
@@ -26,6 +32,34 @@ export function createCoordinateTransformer(
   sourceCrs: string,
   options: CoordinateTransformerOptions = {},
 ): ToCartesian {
+  const definition = createCoordinateTransformDefinition(sourceCrs, options);
+  let transform: proj4.Converter;
+  try {
+    transform = proj4(definition.horizontalCrs, "EPSG:4326");
+  } catch (error) {
+    throw new Error(`Unable to create CRS transform from COPC CRS: ${sourceCrs}`, { cause: error });
+  }
+  return (x, y, z, result) => {
+    const [longitude, latitude] = transform.forward([x, y]);
+    const heightMeters = z * definition.verticalUnitToMeters;
+    const ellipsoidHeight = definition.geoidModel === "egm96"
+      ? egm96ToEllipsoid(latitude, longitude, heightMeters)
+      : heightMeters;
+    return Cartesian3.fromDegrees(
+      longitude,
+      latitude,
+      ellipsoidHeight + definition.verticalOffsetMeters,
+      undefined,
+      result,
+    );
+  };
+}
+
+export function createCoordinateTransformDefinition(
+  sourceCrs: string,
+  options: CoordinateTransformerOptions = {},
+): CartesianTransformDefinition {
+  registerEpsgDefinitions();
   const { horizontalCrs, verticalUnitToMeters, orthometricHeight } = decomposeCrs(sourceCrs);
   if (options.verticalDatum !== undefined && options.geoidModel !== undefined) {
     throw new Error("Pass either verticalDatum or the deprecated geoidModel option, not both");
@@ -38,25 +72,18 @@ export function createCoordinateTransformer(
   if (!Number.isFinite(verticalOffsetMeters)) {
     throw new RangeError("verticalOffsetMeters must be finite");
   }
-  let transform: proj4.Converter;
+  let resolvedHorizontalCrs: string;
   try {
-    transform = proj4(horizontalCrs, "EPSG:4326");
+    resolvedHorizontalCrs = resolveHorizontalCrs(horizontalCrs);
+    proj4(resolvedHorizontalCrs, "EPSG:4326");
   } catch (error) {
     throw new Error(`Unable to create CRS transform from COPC CRS: ${sourceCrs}`, { cause: error });
   }
-  return (x, y, z, result) => {
-    const [longitude, latitude] = transform.forward([x, y]);
-    const heightMeters = z * verticalUnitToMeters;
-    const ellipsoidHeight = applyEgm96
-      ? egm96ToEllipsoid(latitude, longitude, heightMeters)
-      : heightMeters;
-    return Cartesian3.fromDegrees(
-      longitude,
-      latitude,
-      ellipsoidHeight + verticalOffsetMeters,
-      undefined,
-      result,
-    );
+  return {
+    horizontalCrs: resolvedHorizontalCrs,
+    verticalUnitToMeters,
+    ...(applyEgm96 ? { geoidModel: "egm96" as const } : {}),
+    verticalOffsetMeters,
   };
 }
 
@@ -66,7 +93,11 @@ function decomposeCrs(sourceCrs: string): {
   orthometricHeight: boolean;
 } {
   if (!/^\s*(?:COMPD_CS|COMPOUNDCRS)\s*\[/i.test(sourceCrs)) {
-    return { horizontalCrs: sourceCrs, verticalUnitToMeters: 1, orthometricHeight: false };
+    return {
+      horizontalCrs: sourceCrs,
+      verticalUnitToMeters: projectedLinearUnit(sourceCrs) ?? 1,
+      orthometricHeight: false,
+    };
   }
 
   const horizontalCrs = extractWktComponent(sourceCrs, ["PROJCS", "PROJCRS"])
@@ -83,6 +114,54 @@ function decomposeCrs(sourceCrs: string): {
     orthometricHeight: verticalCrs !== undefined
       && /NAVD\s*88|EGM\s*(?:84|96|2008)|orthometric|gravity-related/i.test(verticalCrs),
   };
+}
+
+function resolveHorizontalCrs(definition: string): string {
+  const directCode = normalizeEpsg(definition);
+  if (directCode !== definition || /^EPSG:/i.test(definition)) return directCode;
+
+  const authorityMatches = Array.from(definition.matchAll(
+    /(?:AUTHORITY\s*\[\s*["']EPSG["']\s*,\s*["']?(\d+)|ID\s*\[\s*["']EPSG["']\s*,\s*(\d+))/gi,
+  ));
+  const authority = authorityMatches.at(-1);
+  const code = authority ? `EPSG:${authority[1] ?? authority[2]}` : undefined;
+  const curated = code ? EPSG_DEFINITIONS[code] : undefined;
+  if (curated?.includes("+towgs84")
+    && !/\b(?:TOWGS84|ABRIDGEDTRANSFORMATION)\s*\[/i.test(definition)) {
+    return code!;
+  }
+  try {
+    proj4(definition, "EPSG:4326");
+    return definition;
+  } catch {
+    if (code && proj4.defs(code)) return code;
+    throw new Error(`proj4 cannot resolve source CRS${code ? ` or ${code}` : ""}`);
+  }
+}
+
+/** Finds the outermost projected linear unit, ignoring nested angular units. */
+function projectedLinearUnit(wkt: string): number | undefined {
+  if (!/^\s*(?:PROJCS|PROJCRS|PROJECTEDCRS)\s*\[/i.test(wkt)) return undefined;
+  let depth = 0;
+  let quoted = false;
+  const candidates: Array<{ depth: number; value: number }> = [];
+  for (let index = 0; index < wkt.length; index += 1) {
+    const character = wkt[index];
+    if (character === '"') quoted = !quoted;
+    if (quoted) continue;
+    if (character === "[") depth += 1;
+    else if (character === "]") depth -= 1;
+    else {
+      const match = /^(?:LENGTHUNIT|UNIT)\s*\[\s*"[^"]*"\s*,\s*([+\-\d.eE]+)/i.exec(wkt.slice(index));
+      if (!match) continue;
+      const value = Number(match[1]);
+      if (Number.isFinite(value) && value > 0) candidates.push({ depth, value });
+      index += match[0].length - 1;
+    }
+  }
+  if (candidates.length === 0) return undefined;
+  const shallowest = Math.min(...candidates.map((candidate) => candidate.depth));
+  return candidates.find((candidate) => candidate.depth === shallowest)?.value;
 }
 
 function extractWktComponent(wkt: string, names: readonly string[]): string | undefined {

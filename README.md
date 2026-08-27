@@ -23,6 +23,10 @@ raw COPC data spatially correct and visually coherent while it streams:
 - Source coordinates are transformed to WGS84 Cartesian coordinates. Compound CRS
   definitions and vertical units are handled without guessing a geoid model. EGM96
   correction can be enabled explicitly, and a local vertical offset is optional.
+- The decode worker also projects the normal ellipsoid-height path into node-relative
+  ECEF `Float32` render positions. Source `Float64` coordinates remain available for
+  picking, filtering, and analysis, while per-point projection is removed from the
+  main-thread upload loop. Explicit geoid correction retains the fallback path.
 - Cesium World Terrain and the WGS84 ellipsoid can be selected as independent
   surface references. Picking a point reports its ellipsoid height, sampled surface
   height, and vertical difference instead of silently clamping the cloud.
@@ -34,9 +38,16 @@ raw COPC data spatially correct and visually coherent while it streams:
 - Point size is a shared shader uniform, so changing it is constant-time and does not
   rewrite every point's GPU attributes.
 - Streaming requests are reprioritized toward the camera center. Parent nodes remain
-  visible until child cohorts are ready, and higher-detail cohorts are revealed only
+  visible because COPC refinement is additive, while child cohorts are revealed only
+  when they are ready. Higher-detail cohorts are revealed only
   when they cover a meaningful portion of the viewport. This avoids small isolated
   patches of unusually dense points during loading and under a constrained budget.
+- Default point, memory, worker, and request budgets adapt to low, medium, and high
+  device tiers. Unknown devices use the medium tier; every budget remains overridable.
+- Korean national grids commonly used by public surveying data are registered out of
+  the box (`EPSG:5173`–`5188`, `EPSG:2096`–`2098`, and `EPSG:4737`). Legacy Bessel
+  WKT that declares one of these codes but omits its datum shift uses the curated
+  definition instead of silently rendering hundreds of metres away.
 
 ## Usage
 
@@ -76,6 +87,7 @@ viewer.scene.primitives.add(pointCloud);
 pointCloud.colorBy = "classification"; // rgb | classification | intensity | elevation
 pointCloud.pointSize = 3;
 pointCloud.filter = { classifications: [2, 6], intensity: [500, 65_535] };
+console.log(pointCloud.deviceTier); // low | medium | high
 
 pointCloud.bindClock(viewer.clock, {
   start: viewer.clock.startTime,

@@ -92,7 +92,9 @@ export function selectLod(
         return {
           ...candidate,
           children,
-          pointDelta: childPoints - candidate.node.pointCount,
+          // COPC follows EPT's additive octree model: parent points are not
+          // duplicated in children, so refinement adds rather than replaces.
+          pointDelta: childPoints,
           weight: Math.max(0, view.screenWeight?.(candidate.node.bounds) ?? 1),
           refinementWeight: Math.max(0, view.refinementWeight?.(candidate.node.bounds) ?? 1),
         };
@@ -120,7 +122,6 @@ export function selectLod(
       for (const candidate of chosen) {
         const key = formatNodeId(candidate.node.id);
         if (!selected.has(key)) continue;
-        selected.delete(key);
         for (const child of candidate.children) {
           selected.set(formatNodeId(child.id), child);
           // Do not refine deeper after only a partial screen cohort was affordable.
@@ -148,9 +149,8 @@ export function selectLod(
     const visibleChildren = children.filter((child) => view.isVisible(child.bounds));
     if (visibleChildren.length === 0) continue;
     const childPoints = visibleChildren.reduce((total, child) => total + child.pointCount, 0);
-    const refinedPointCount = pointCount - candidate.node.pointCount + childPoints;
+    const refinedPointCount = pointCount + childPoints;
     if (refinedPointCount > options.pointBudget) continue;
-    selected.delete(key);
     for (const child of visibleChildren) {
       selected.set(formatNodeId(child.id), child);
       consider(child);
@@ -166,9 +166,9 @@ export function selectLod(
 }
 
 /**
- * Resolves a display frontier that refines sibling branches as an atomic group.
- * A ready ancestor remains visible until every required child branch can be
- * represented by either its requested node or a ready intermediate ancestor.
+ * Resolves an additive display set while refining sibling branches atomically.
+ * Ready ancestors remain visible because their points are not duplicated in
+ * descendants; incomplete child cohorts are withheld to avoid patchy detail.
  */
 export function resolveReadyLod(
   root: NodeId,
@@ -181,9 +181,19 @@ export function resolveReadyLod(
   const minimumCoverage = Math.min(1, Math.max(0, options.minimumRefinementCoverage ?? 0));
   const weight = options.weight ?? (() => 1);
 
-  const selectedKeys = new Set(selected.map(formatNodeId));
-  const childBranches = new Map<string, Map<string, NodeId>>();
+  // The additive selection contains every requested ancestor. Resolve atomic
+  // readiness against only its deepest frontier, then restore ready ancestors.
+  const nodesWithSelectedDescendants = new Set<string>();
   for (const node of selected) {
+    for (let depth = root.depth; depth < node.depth; depth += 1) {
+      nodesWithSelectedDescendants.add(formatNodeId(ancestorNodeId(node, depth)));
+    }
+  }
+  const selectedFrontier = selected.filter((candidate) =>
+    !nodesWithSelectedDescendants.has(formatNodeId(candidate)));
+  const selectedKeys = new Set(selectedFrontier.map(formatNodeId));
+  const childBranches = new Map<string, Map<string, NodeId>>();
+  for (const node of selectedFrontier) {
     for (let depth = root.depth; depth < node.depth; depth += 1) {
       const parent = ancestorNodeId(node, depth);
       const child = ancestorNodeId(node, depth + 1);
@@ -242,5 +252,14 @@ export function resolveReadyLod(
     return result;
   };
 
-  return resolve(root) ?? [];
+  const frontier = resolve(root) ?? [];
+  const additive = new Map<string, NodeId>();
+  for (const node of frontier) {
+    for (let depth = root.depth; depth <= node.depth; depth += 1) {
+      const ancestor = ancestorNodeId(node, depth);
+      const key = formatNodeId(ancestor);
+      if (isReady(ancestor)) additive.set(key, ancestor);
+    }
+  }
+  return Array.from(additive.values());
 }

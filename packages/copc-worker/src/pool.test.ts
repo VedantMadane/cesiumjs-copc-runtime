@@ -62,6 +62,11 @@ describe("CopcDecodeWorkerPool", () => {
     const workers: FakeWorker[] = [];
     const pool = await CopcDecodeWorkerPool.create({
       metadata,
+      cartesianTransform: {
+        horizontalCrs: "EPSG:4326",
+        verticalUnitToMeters: 1,
+        verticalOffsetMeters: 0,
+      },
       workerCount: 2,
       workerFactory: () => {
         const worker = new FakeWorker();
@@ -81,6 +86,11 @@ describe("CopcDecodeWorkerPool", () => {
     expect(pool.statistics).toEqual({ decodedNodes: 1, decodeMilliseconds: 12 });
     expect(workers).toHaveLength(2);
     expect(workers.every((worker) => worker.requests[0]?.type === "initialize")).toBe(true);
+    expect(workers.every((worker) => {
+      const request = worker.requests[0];
+      return request?.type === "initialize"
+        && request.cartesianTransform?.horizontalCrs === "EPSG:4326";
+    })).toBe(true);
     pool.destroy();
     expect(workers.every((worker) => worker.terminated)).toBe(true);
   });

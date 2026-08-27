@@ -4,13 +4,16 @@ import {
   decodeCompressedPointNode,
   filterPointCloudNode,
   type CopcDecodingMetadata,
+  type CartesianTransformDefinition,
   type PointCloudNode,
 } from "@copc-runtime/core";
+import { createCartesianPositions } from "./cartesian.js";
 import type { DecoderWorkerRequest, DecoderWorkerResponse } from "./protocol.js";
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 const controllers = new Map<number, AbortController>();
 let metadata: CopcDecodingMetadata | undefined;
+let cartesianTransform: CartesianTransformDefinition | undefined;
 
 scope.onmessage = (event: MessageEvent<DecoderWorkerRequest>) => {
   void handle(event.data);
@@ -21,6 +24,7 @@ async function handle(request: DecoderWorkerRequest): Promise<void> {
     switch (request.type) {
       case "initialize":
         metadata = request.metadata;
+        cartesianTransform = request.cartesianTransform;
         respond({ type: "success", id: request.id });
         return;
       case "load": {
@@ -29,12 +33,16 @@ async function handle(request: DecoderWorkerRequest): Promise<void> {
         controllers.set(request.id, controller);
         const started = performance.now();
         try {
-          const node = await decodeCompressedPointNode(
+          const decoded = await decodeCompressedPointNode(
             metadata,
             request.node,
             request.dimensions,
             controller.signal,
           );
+          const node = cartesianTransform === undefined ? decoded : {
+            ...decoded,
+            cartesian: createCartesianPositions(decoded, cartesianTransform),
+          };
           respond({
             type: "success",
             id: request.id,
@@ -61,6 +69,7 @@ async function handle(request: DecoderWorkerRequest): Promise<void> {
         for (const controller of controllers.values()) controller.abort();
         controllers.clear();
         metadata = undefined;
+        cartesianTransform = undefined;
         scope.close();
         return;
     }
@@ -78,6 +87,7 @@ function transferables(node: PointCloudNode): Transferable[] {
     node.positions.buffer,
     ...(node.colors ? [node.colors.buffer] : []),
     ...Object.values(node.attributes).map((attribute) => attribute.buffer),
+    ...(node.cartesian ? [node.cartesian.positions.buffer] : []),
   ];
   return buffers.filter((buffer): buffer is ArrayBuffer => buffer instanceof ArrayBuffer);
 }

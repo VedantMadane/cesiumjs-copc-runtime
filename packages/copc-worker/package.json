@@ -9,9 +9,10 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": ["dist", "!dist/**/*.test.*", "!dist/.tsbuildinfo"],
   "scripts": { "build": "tsc -b" },
   "dependencies": {
-    "@copc-runtime/core": "0.1.0"
+    "@copc-runtime/core": "0.1.0",
+    "proj4": "^2.19.10"
   }
 }

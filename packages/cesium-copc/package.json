@@ -10,7 +10,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/.tsbuildinfo"
   ],
   "scripts": {
     "build": "tsc -b"

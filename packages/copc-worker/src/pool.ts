@@ -1,6 +1,7 @@
 import type {
   CompressedPointCloudNode,
   CopcDecodingMetadata,
+  CartesianTransformDefinition,
   PointCloudNodeFilter,
   PointCloudNode,
 } from "@copc-runtime/core";
@@ -17,6 +18,7 @@ export type DecoderWorkerFactory = () => WorkerLike;
 
 export interface CopcDecodeWorkerPoolOptions {
   readonly metadata: CopcDecodingMetadata;
+  readonly cartesianTransform?: CartesianTransformDefinition;
   readonly workerCount?: number;
   readonly workerFactory?: DecoderWorkerFactory;
 }
@@ -48,8 +50,15 @@ class WorkerClient {
     };
   }
 
-  async initialize(metadata: CopcDecodingMetadata): Promise<void> {
-    await this.#request({ type: "initialize", metadata });
+  async initialize(
+    metadata: CopcDecodingMetadata,
+    cartesianTransform?: CartesianTransformDefinition,
+  ): Promise<void> {
+    await this.#request({
+      type: "initialize",
+      metadata,
+      ...(cartesianTransform === undefined ? {} : { cartesianTransform }),
+    });
   }
 
   async decodeNode(
@@ -169,7 +178,8 @@ export class CopcDecodeWorkerPool {
     const workers = Array.from({ length: count }, () => new WorkerClient(factory));
     const pool = new CopcDecodeWorkerPool(workers);
     try {
-      await Promise.all(workers.map((worker) => worker.initialize(options.metadata)));
+      await Promise.all(workers.map((worker) =>
+        worker.initialize(options.metadata, options.cartesianTransform)));
       return pool;
     } catch (error) {
       pool.destroy();

@@ -42,6 +42,20 @@ export type PointAttributeArray =
   | Float32Array
   | Float64Array;
 
+/** Serializable transform configuration suitable for a decoder Worker. */
+export interface CartesianTransformDefinition {
+  readonly horizontalCrs: string;
+  readonly verticalUnitToMeters: number;
+  readonly geoidModel?: "egm96";
+  readonly verticalOffsetMeters: number;
+}
+
+/** GPU-friendly ECEF positions relative to one double-precision node origin. */
+export interface CartesianPointPositions {
+  readonly origin: Vec3;
+  readonly positions: Float32Array;
+}
+
 export interface PointCloudNode {
   readonly id: NodeId;
   readonly pointCount: number;
@@ -50,6 +64,8 @@ export interface PointCloudNode {
   /** RGB values interleaved and normalized to 0..255 when present. */
   readonly colors?: Uint8Array;
   readonly attributes: Readonly<Record<string, PointAttributeArray>>;
+  /** Optional render representation produced by a projection-aware Worker. */
+  readonly cartesian?: CartesianPointPositions;
 }
 
 export interface CompressedPointCloudNode {

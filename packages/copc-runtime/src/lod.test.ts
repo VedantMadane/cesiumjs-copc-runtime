@@ -50,15 +50,16 @@ describe("LOD selection", () => {
     expect(result.pointCount).toBe(100);
   });
 
-  it("replaces a parent with the complete visible child frontier when budget allows", () => {
+  it("adds the complete visible child frontier while retaining its parent", () => {
     const result = selectLod(
       root,
       (id) => id.depth === 0 ? children : [],
       view,
       { maximumScreenSpaceError: 2, pointBudget: 900 },
     );
-    expect(result.selected).toHaveLength(8);
-    expect(result.pointCount).toBe(800);
+    expect(result.selected).toHaveLength(9);
+    expect(result.selected[0]).toEqual(root);
+    expect(result.pointCount).toBe(900);
   });
 
   it("does not spend the point budget on a visually small refinement patch", () => {
@@ -72,8 +73,9 @@ describe("LOD selection", () => {
       { ...view, screenWeight: () => 0.05 },
       { maximumScreenSpaceError: 2, pointBudget: 2_200, minimumRefinementCoverage: 0.4 },
     );
-    expect(result.selected).toHaveLength(8);
-    expect(result.selected.every((node) => node.id.depth === 1)).toBe(true);
+    expect(result.selected).toHaveLength(9);
+    expect(result.selected.filter((node) => node.id.depth === 1)).toHaveLength(8);
+    expect(result.pointCount).toBe(900);
   });
 
   it("allows a broad refinement cohort and stops it from racing deeper", () => {
@@ -85,11 +87,11 @@ describe("LOD selection", () => {
       root,
       (id) => id.depth === 0 ? children : (grandchildrenByParent.get(formatNodeId(id)) ?? []),
       { ...view, screenWeight: () => 0.05 },
-      { maximumScreenSpaceError: 2, pointBudget: 3_600, minimumRefinementCoverage: 0.4 },
+      { maximumScreenSpaceError: 2, pointBudget: 4_100, minimumRefinementCoverage: 0.4 },
     );
-    expect(result.selected).toHaveLength(36);
+    expect(result.selected).toHaveLength(41);
     expect(result.selected.filter((node) => node.id.depth === 2)).toHaveLength(32);
-    expect(result.pointCount).toBe(3_600);
+    expect(result.pointCount).toBe(4_100);
   });
 
   it("refines an enlarged region even when it is a small share of the candidate set", () => {
@@ -108,10 +110,10 @@ describe("LOD selection", () => {
           ? 0.5
           : 0.01,
       },
-      { maximumScreenSpaceError: 2, pointBudget: 1_500, minimumRefinementCoverage: 0.4 },
+      { maximumScreenSpaceError: 2, pointBudget: 1_700, minimumRefinementCoverage: 0.4 },
     );
     expect(result.selected.filter((node) => node.id.depth === 2)).toHaveLength(8);
-    expect(result.pointCount).toBe(1_500);
+    expect(result.pointCount).toBe(1_700);
   });
 
   it("spends limited refinement budget on the view focus", () => {
@@ -128,7 +130,7 @@ describe("LOD selection", () => {
         screenWeight: () => 0.05,
         refinementWeight: (bounds) => bounds === focusedParent.bounds ? 2.5 : 1,
       },
-      { maximumScreenSpaceError: 2, pointBudget: 1_500, minimumRefinementCoverage: 0.4 },
+      { maximumScreenSpaceError: 2, pointBudget: 1_700, minimumRefinementCoverage: 0.4 },
     );
 
     const refinedParents = new Set(result.selected
@@ -154,7 +156,10 @@ describe("LOD selection", () => {
       children.map((child) => child.id),
       (node) => ready.has(formatNodeId(node)),
     );
-    expect(visible.map(formatNodeId)).toEqual(children.map((child) => formatNodeId(child.id)));
+    expect(new Set(visible.map(formatNodeId))).toEqual(new Set([
+      formatNodeId(root.id),
+      ...children.map((child) => formatNodeId(child.id)),
+    ]));
   });
 
   it("refines one ready child subtree without forcing its siblings to refine", () => {
@@ -167,10 +172,11 @@ describe("LOD selection", () => {
       ...grandchildren.map(formatNodeId),
     ]);
     const visible = resolveReadyLod(root.id, selected, (node) => ready.has(formatNodeId(node)));
-    expect(visible.map(formatNodeId)).toEqual([
+    expect(new Set(visible.map(formatNodeId))).toEqual(new Set([
+      formatNodeId(root.id),
+      ...children.map((child) => formatNodeId(child.id)),
       ...grandchildren.map(formatNodeId),
-      ...children.slice(1).map((child) => formatNodeId(child.id)),
-    ]);
+    ]));
   });
 
   it("holds small refined patches until enough sibling screen coverage is ready", () => {
@@ -189,7 +195,10 @@ describe("LOD selection", () => {
       (node) => ready.has(formatNodeId(node)),
       { minimumRefinementCoverage: 0.4 },
     );
-    expect(visible.map(formatNodeId)).toEqual(children.map((child) => formatNodeId(child.id)));
+    expect(new Set(visible.map(formatNodeId))).toEqual(new Set([
+      formatNodeId(root.id),
+      ...children.map((child) => formatNodeId(child.id)),
+    ]));
   });
 
   it("reveals a refinement cohort after its coverage threshold is reached", () => {
@@ -208,7 +217,7 @@ describe("LOD selection", () => {
       (node) => ready.has(formatNodeId(node)),
       { minimumRefinementCoverage: 0.4 },
     );
-    expect(visible).toHaveLength(4 * 8 + 4);
+    expect(visible).toHaveLength(1 + 8 + 4 * 8);
   });
 
   it("reveals a loaded refinement when that region fills the viewport", () => {
@@ -227,6 +236,6 @@ describe("LOD selection", () => {
       (node) => ready.has(formatNodeId(node)),
       { minimumRefinementCoverage: 0.4, weight: () => 0.4 },
     );
-    expect(visible).toHaveLength(8 + 7);
+    expect(visible).toHaveLength(1 + 8 + 8);
   });
 });

@@ -1,5 +1,6 @@
 import type {
   CompressedPointCloudNode,
+  CartesianTransformDefinition,
   CopcDecodingMetadata,
   PointCloudNodeFilter,
   PointCloudNode,
@@ -15,6 +16,7 @@ export type DecoderWorkerRequest =
       readonly type: "initialize";
       readonly id: number;
       readonly metadata: CopcDecodingMetadata;
+      readonly cartesianTransform?: CartesianTransformDefinition;
     }
   | {
       readonly type: "load";

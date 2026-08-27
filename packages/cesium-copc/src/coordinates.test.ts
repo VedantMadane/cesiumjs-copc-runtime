@@ -12,6 +12,29 @@ describe("coordinate transformer", () => {
     expect(cartographic.height).toBeCloseTo(123, 4);
   });
 
+  it("registers Korea 2000 projected coordinate systems", () => {
+    const cartographic = Cartographic.fromCartesian(
+      createCoordinateTransformer("EPSG:5186")(200_000, 600_000, 50),
+    );
+    expect(CesiumMath.toDegrees(cartographic.longitude)).toBeCloseTo(127, 6);
+    expect(CesiumMath.toDegrees(cartographic.latitude)).toBeCloseTo(38, 6);
+    expect(cartographic.height).toBeCloseTo(50, 4);
+  });
+
+  it("uses the projected horizontal unit for Z when no vertical CRS exists", () => {
+    const projectedFeet = `PROJCS["NAD83 / Oregon GIC Lambert (ft)",
+      GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101]],
+        PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],
+      PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["latitude_of_origin",41.75],
+      PARAMETER["central_meridian",-120.5],PARAMETER["standard_parallel_1",43],
+      PARAMETER["standard_parallel_2",45.5],PARAMETER["false_easting",1312335.958],
+      PARAMETER["false_northing",0],UNIT["foot",0.3048]]`;
+    const cartographic = Cartographic.fromCartesian(
+      createCoordinateTransformer(projectedFeet)(637_900, 851_200, 100),
+    );
+    expect(cartographic.height).toBeCloseTo(30.48, 4);
+  });
+
   it("supports compound projected CRS and converts its vertical unit without guessing a geoid", () => {
     const compoundCrs = `COMPD_CS["NAD83 / Oregon GIC Lambert (ft) + NAVD88 height (ftUS)",
       PROJCS["NAD83 / Oregon GIC Lambert (ft)",

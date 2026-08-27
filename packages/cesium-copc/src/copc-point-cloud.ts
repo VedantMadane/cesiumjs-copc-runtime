@@ -32,12 +32,16 @@ import {
 import {
   LruCache,
   RequestQueue,
+  budgetFor,
+  classifyDevice,
   resolveReadyLod,
   selectLod,
+  type DeviceTier,
   type ViewState,
 } from "@copc-runtime/runtime";
 import { CopcDecodeWorkerPool } from "@copc-runtime/worker";
 import {
+  createCoordinateTransformDefinition,
   createCoordinateTransformer,
   type ToCartesian,
   type VerticalDatum,
@@ -181,6 +185,7 @@ interface UpdatablePrimitiveCollection extends PrimitiveCollection {
 }
 
 export class CopcPointCloud {
+  readonly deviceTier: DeviceTier;
   pointBudget: number;
   maximumScreenSpaceError: number;
   minimumRefinementCoverage: number;
@@ -229,6 +234,7 @@ export class CopcPointCloud {
     toCartesian: ToCartesian,
     decoder: CopcDecodeWorkerPool | undefined,
     options: CopcPointCloudOptions,
+    deviceTier: DeviceTier,
   ) {
     this.#source = source;
     this.#root = root;
@@ -237,8 +243,10 @@ export class CopcPointCloud {
     this.#dimensions = options.dimensions
       ?? ["Red", "Green", "Blue", "Intensity", "Classification", "GpsTime"];
     this.#allowPicking = options.allowPicking ?? true;
-    this.pointBudget = options.pointBudget ?? 2_000_000;
-    this.maximumScreenSpaceError = options.maximumScreenSpaceError ?? 2;
+    this.deviceTier = deviceTier;
+    const deviceBudget = budgetFor(deviceTier);
+    this.pointBudget = options.pointBudget ?? deviceBudget.pointBudget;
+    this.maximumScreenSpaceError = options.maximumScreenSpaceError ?? deviceBudget.maximumScreenSpaceError;
     this.uploadTimeBudgetMilliseconds = nonNegativeFinite(
       options.uploadTimeBudgetMilliseconds ?? 2,
       "uploadTimeBudgetMilliseconds",
@@ -253,13 +261,15 @@ export class CopcPointCloud {
     this.#outlineColor = Color.clone(options.outlineColor ?? Color.BLACK);
     this.#colorBy = options.colorBy ?? "rgb";
     this.#filter = options.filter;
-    const gpuCacheSize = options.cacheSize ?? 512 * 1024 * 1024;
+    const gpuCacheSize = options.cacheSize ?? deviceBudget.cacheSize;
     this.#gpuCache = new LruCache(gpuCacheSize);
     this.#decodedCache = new LruCache(options.decodedCacheSize ?? Math.round(gpuCacheSize * 1.5));
-    this.#requests = new RequestQueue(options.requestConcurrency ?? 8);
+    this.#requests = new RequestQueue(options.requestConcurrency ?? deviceBudget.requestConcurrency);
   }
 
   static async fromUrl(url: string, options: CopcPointCloudOptions = {}): Promise<CopcPointCloud> {
+    const deviceTier = classifyDevice();
+    const deviceBudget = budgetFor(deviceTier);
     const source = await CopcSource.fromUrl(url, {
       ...options.range,
       ...(options.headers === undefined ? {} : { headers: options.headers }),
@@ -272,7 +282,7 @@ export class CopcPointCloud {
         throw new Error("COPC CRS is missing; pass sourceCrs in CopcPointCloudOptions");
       }
       const root = await source.root();
-      const toCartesian = createCoordinateTransformer(sourceCrs, {
+      const coordinateOptions = {
         ...(options.verticalDatum === undefined
           ? {}
           : { verticalDatum: options.verticalDatum }),
@@ -280,11 +290,14 @@ export class CopcPointCloud {
         ...(options.verticalOffsetMeters === undefined
           ? {}
           : { verticalOffsetMeters: options.verticalOffsetMeters }),
-      });
+      };
+      const coordinateTransform = createCoordinateTransformDefinition(sourceCrs, coordinateOptions);
+      const toCartesian = createCoordinateTransformer(sourceCrs, coordinateOptions);
       decoder = options.useWorkers !== false && typeof Worker !== "undefined"
         ? await CopcDecodeWorkerPool.create({
             metadata: source.decodingMetadata(),
-            ...(options.workerCount === undefined ? {} : { workerCount: options.workerCount }),
+            ...(coordinateTransform.geoidModel === undefined ? { cartesianTransform: coordinateTransform } : {}),
+            workerCount: options.workerCount ?? deviceBudget.workerCount,
           })
         : undefined;
       const pointCloud = new CopcPointCloud(
@@ -293,6 +306,7 @@ export class CopcPointCloud {
         toCartesian,
         decoder,
         options,
+        deviceTier,
       );
       pointCloud.#children.set(formatNodeId(root.id), await source.getHierarchy(root.id));
       pointCloud.#requestNode(root, Number.POSITIVE_INFINITY);
@@ -671,11 +685,13 @@ export class CopcPointCloud {
     replaced?: RenderedNode,
   ): CollectionBuild {
     const bounds = boundsForNode(this.#root.bounds, renderData.id);
-    const origin = this.#toCartesian(
-      (bounds[0] + bounds[3]) / 2,
-      (bounds[1] + bounds[4]) / 2,
-      (bounds[2] + bounds[5]) / 2,
-    );
+    const origin = renderData.cartesian
+      ? Cartesian3.fromElements(...renderData.cartesian.origin)
+      : this.#toCartesian(
+          (bounds[0] + bounds[3]) / 2,
+          (bounds[1] + bounds[4]) / 2,
+          (bounds[2] + bounds[5]) / 2,
+        );
     const collection = new BufferPointCollection({
       primitiveCountMax: Math.max(1, renderData.pointCount),
       positionDatatype: ComponentDatatype.FLOAT,
@@ -717,13 +733,22 @@ export class CopcPointCloud {
         const node = build.renderData;
         while (build.index < node.pointCount) {
           const i = build.index;
-          this.#toCartesian(
-            node.positions[i * 3]!,
-            node.positions[i * 3 + 1]!,
-            node.positions[i * 3 + 2]!,
-            build.worldPosition,
-          );
-          Cartesian3.subtract(build.worldPosition, build.origin, build.localPosition);
+          if (node.cartesian) {
+            Cartesian3.fromElements(
+              node.cartesian.positions[i * 3]!,
+              node.cartesian.positions[i * 3 + 1]!,
+              node.cartesian.positions[i * 3 + 2]!,
+              build.localPosition,
+            );
+          } else {
+            this.#toCartesian(
+              node.positions[i * 3]!,
+              node.positions[i * 3 + 1]!,
+              node.positions[i * 3 + 2]!,
+              build.worldPosition,
+            );
+            Cartesian3.subtract(build.worldPosition, build.origin, build.localPosition);
+          }
           build.material.color = this.#colorForPoint(node, i);
           build.collection.add({
             position: build.localPosition,
@@ -1071,7 +1096,9 @@ const priorityDirection = new Cartesian3();
 const refinementDirection = new Cartesian3();
 
 function pointNodeByteLength(node: PointCloudNode): number {
-  let bytes = node.positions.byteLength + (node.colors?.byteLength ?? 0);
+  let bytes = node.positions.byteLength
+    + (node.colors?.byteLength ?? 0)
+    + (node.cartesian?.positions.byteLength ?? 0);
   for (const attribute of Object.values(node.attributes)) bytes += attribute.byteLength;
   return bytes;
 }

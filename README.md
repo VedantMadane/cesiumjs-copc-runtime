@@ -7,11 +7,12 @@ Cloud-native COPC streaming and analysis for CesiumJS without 3D Tiles preproces
 [![License: MIT](https://img.shields.io/badge/license-MIT-0b7285.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-43853d.svg)](package.json)
 
-[Live demo](https://yangseungsang.github.io/cesiumjs-copc-runtime/) ·
-[한국어](README.ko.md) ·
-[Getting started](docs/getting-started.md) ·
-[Architecture](docs/architecture.md) ·
-[Benchmarks](docs/benchmarks.md) ·
+[Live demo](https://yangseungsang.github.io/cesiumjs-copc-runtime/) |
+[한국어](README.ko.md) |
+[All documentation](docs/README.md) |
+[Getting started](docs/getting-started.md) |
+[Architecture](docs/architecture.md) |
+[Benchmarks](docs/benchmarks.md) |
 [Contributing](CONTRIBUTING.md)
 
 ![A COPC point cloud progressively streamed over a globe](docs/assets/cesiumjs-copc-runtime-hero.png)

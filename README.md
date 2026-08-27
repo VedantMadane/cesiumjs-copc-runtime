@@ -92,9 +92,28 @@ and analysis can evolve independently. See [Architecture](docs/architecture.md) 
 | `cesiumjs-copc-analysis`  | Bounds queries, statistics, and height profiles              |
 | `cesiumjs-copc-benchmark` | Reproducible remote streaming and decode benchmark           |
 
-## Quick start from source
+## Install
 
 Node.js 20 or newer is required.
+
+```sh
+npm install cesiumjs-copc cesium
+```
+
+CesiumJS is a peer dependency, so install it yourself and keep exactly one copy in
+your tree. The renderer hands Cesium objects back and forth with your viewer, and two
+Cesium instances break the type identity those exchanges rely on.
+
+Install only what you use. The packages are independent:
+
+```sh
+npm install cesiumjs-copc-core       # read COPC over HTTP ranges, no renderer
+npm install cesiumjs-copc-analysis   # spatial queries and statistics, no renderer
+```
+
+Neither of those needs Cesium.
+
+## Run the demo from source
 
 ```sh
 git clone https://github.com/yangseungsang/cesiumjs-copc-runtime.git

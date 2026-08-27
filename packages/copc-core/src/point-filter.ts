@@ -15,17 +15,26 @@ export function matchesPointCloudNodeFilter(
   if (!filter) return true;
   if (filter.classifications) {
     const classification = node.attributes.Classification?.[index];
-    if (classification === undefined || !filter.classifications.includes(classification)) return false;
+    if (classification === undefined || !filter.classifications.includes(classification))
+      return false;
   }
   if (filter.intensity) {
     const intensity = node.attributes.Intensity?.[index];
-    if (intensity === undefined || intensity < filter.intensity[0] || intensity > filter.intensity[1]) {
+    if (
+      intensity === undefined ||
+      intensity < filter.intensity[0] ||
+      intensity > filter.intensity[1]
+    ) {
       return false;
     }
   }
   if (filter.elevation) {
     const elevation = node.positions[index * 3 + 2];
-    if (elevation === undefined || elevation < filter.elevation[0] || elevation > filter.elevation[1]) {
+    if (
+      elevation === undefined ||
+      elevation < filter.elevation[0] ||
+      elevation > filter.elevation[1]
+    ) {
       return false;
     }
   }
@@ -82,9 +91,11 @@ export function filterPointCloudNode(
     pointCount: indices.length,
     positions,
     ...(colors === undefined ? {} : { colors }),
-    ...(cartesianPositions === undefined || node.cartesian === undefined ? {} : {
-      cartesian: { origin: node.cartesian.origin, positions: cartesianPositions },
-    }),
+    ...(cartesianPositions === undefined || node.cartesian === undefined
+      ? {}
+      : {
+          cartesian: { origin: node.cartesian.origin, positions: cartesianPositions },
+        }),
     attributes,
   };
 }

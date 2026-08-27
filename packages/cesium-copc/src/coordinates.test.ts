@@ -70,9 +70,11 @@ describe("coordinate transformer", () => {
   });
 
   it("rejects ambiguous legacy and vertical datum options", () => {
-    expect(() => createCoordinateTransformer("EPSG:4326", {
-      verticalDatum: { type: "ellipsoid" },
-      geoidModel: "none",
-    })).toThrow(/either verticalDatum/);
+    expect(() =>
+      createCoordinateTransformer("EPSG:4326", {
+        verticalDatum: { type: "ellipsoid" },
+        geoidModel: "none",
+      }),
+    ).toThrow(/either verticalDatum/);
   });
 });

@@ -7,7 +7,9 @@ describe("device tiers", () => {
   });
 
   it("keeps mobile and constrained devices on the low tier", () => {
-    expect(classifyDevice({ mobile: true, memoryGigabytes: 16, hardwareConcurrency: 12 })).toBe("low");
+    expect(classifyDevice({ mobile: true, memoryGigabytes: 16, hardwareConcurrency: 12 })).toBe(
+      "low",
+    );
     expect(classifyDevice({ memoryGigabytes: 4, hardwareConcurrency: 8 })).toBe("low");
   });
 

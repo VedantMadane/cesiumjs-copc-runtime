@@ -22,12 +22,14 @@ class FakeWorker implements WorkerLike {
         colors: new Uint8Array([4, 5, 6]),
         attributes: {},
       };
-      queueMicrotask(() => this.respond({
-        type: "success",
-        id: message.id,
-        node,
-        statistics: { decodedNodes: 1, decodeMilliseconds: 12 },
-      }));
+      queueMicrotask(() =>
+        this.respond({
+          type: "success",
+          id: message.id,
+          node,
+          statistics: { decodedNodes: 1, decodeMilliseconds: 12 },
+        }),
+      );
     }
     if (message.type === "filter") {
       const node: PointCloudNode = {
@@ -40,7 +42,9 @@ class FakeWorker implements WorkerLike {
     }
   }
 
-  terminate(): void { this.terminated = true; }
+  terminate(): void {
+    this.terminated = true;
+  }
 
   private respond(response: DecoderWorkerResponse): void {
     this.onmessage?.({ data: response } as MessageEvent<DecoderWorkerResponse>);
@@ -86,11 +90,15 @@ describe("CopcDecodeWorkerPool", () => {
     expect(pool.statistics).toEqual({ decodedNodes: 1, decodeMilliseconds: 12 });
     expect(workers).toHaveLength(2);
     expect(workers.every((worker) => worker.requests[0]?.type === "initialize")).toBe(true);
-    expect(workers.every((worker) => {
-      const request = worker.requests[0];
-      return request?.type === "initialize"
-        && request.cartesianTransform?.horizontalCrs === "EPSG:4326";
-    })).toBe(true);
+    expect(
+      workers.every((worker) => {
+        const request = worker.requests[0];
+        return (
+          request?.type === "initialize" &&
+          request.cartesianTransform?.horizontalCrs === "EPSG:4326"
+        );
+      }),
+    ).toBe(true);
     pool.destroy();
     expect(workers.every((worker) => worker.terminated)).toBe(true);
   });
@@ -112,11 +120,15 @@ describe("CopcDecodeWorkerPool", () => {
       workerFactory: () => worker,
     });
     const controller = new AbortController();
-    const request = pool.decodeNode({
-      id: { depth: 0, x: 0, y: 0, z: 0 },
-      pointCount: 1,
-      bytes: new Uint8Array([1]),
-    }, [], controller.signal);
+    const request = pool.decodeNode(
+      {
+        id: { depth: 0, x: 0, y: 0, z: 0 },
+        pointCount: 1,
+        bytes: new Uint8Array([1]),
+      },
+      [],
+      controller.signal,
+    );
     controller.abort(new DOMException("obsolete", "AbortError"));
     await expect(request).rejects.toMatchObject({ name: "AbortError" });
     expect(worker.requests.some((message) => message.type === "cancel")).toBe(true);

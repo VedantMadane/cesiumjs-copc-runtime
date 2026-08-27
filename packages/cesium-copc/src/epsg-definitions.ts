@@ -1,8 +1,8 @@
 import proj4 from "proj4";
 
 const GRS80 = "+ellps=GRS80 +units=m +no_defs";
-const BESSEL = "+ellps=bessel +units=m +no_defs "
-  + "+towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43";
+const BESSEL =
+  "+ellps=bessel +units=m +no_defs " + "+towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43";
 
 function tmerc(lon: number, northing: number, datum: string, scale = 1, easting = 200_000): string {
   return `+proj=tmerc +lat_0=38 +lon_0=${lon} +k=${scale} +x_0=${easting} +y_0=${northing} ${datum}`;

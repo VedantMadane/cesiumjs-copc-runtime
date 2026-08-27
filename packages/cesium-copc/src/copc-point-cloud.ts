@@ -197,7 +197,9 @@ export class CopcPointCloud {
   readonly #toCartesian: ToCartesian;
   readonly #dimensions: readonly string[];
   readonly #allowPicking: boolean;
-  readonly #primitives = new PrimitiveCollection({ destroyPrimitives: true }) as UpdatablePrimitiveCollection;
+  readonly #primitives = new PrimitiveCollection({
+    destroyPrimitives: true,
+  }) as UpdatablePrimitiveCollection;
   readonly #requests: RequestQueue;
   readonly #decoder: CopcDecodeWorkerPool | undefined;
   readonly #children = new Map<string, readonly HierarchyEntry[]>();
@@ -240,13 +242,20 @@ export class CopcPointCloud {
     this.#root = root;
     this.#toCartesian = toCartesian;
     this.#decoder = decoder;
-    this.#dimensions = options.dimensions
-      ?? ["Red", "Green", "Blue", "Intensity", "Classification", "GpsTime"];
+    this.#dimensions = options.dimensions ?? [
+      "Red",
+      "Green",
+      "Blue",
+      "Intensity",
+      "Classification",
+      "GpsTime",
+    ];
     this.#allowPicking = options.allowPicking ?? true;
     this.deviceTier = deviceTier;
     const deviceBudget = budgetFor(deviceTier);
     this.pointBudget = options.pointBudget ?? deviceBudget.pointBudget;
-    this.maximumScreenSpaceError = options.maximumScreenSpaceError ?? deviceBudget.maximumScreenSpaceError;
+    this.maximumScreenSpaceError =
+      options.maximumScreenSpaceError ?? deviceBudget.maximumScreenSpaceError;
     this.uploadTimeBudgetMilliseconds = nonNegativeFinite(
       options.uploadTimeBudgetMilliseconds ?? 2,
       "uploadTimeBudgetMilliseconds",
@@ -264,7 +273,9 @@ export class CopcPointCloud {
     const gpuCacheSize = options.cacheSize ?? deviceBudget.cacheSize;
     this.#gpuCache = new LruCache(gpuCacheSize);
     this.#decodedCache = new LruCache(options.decodedCacheSize ?? Math.round(gpuCacheSize * 1.5));
-    this.#requests = new RequestQueue(options.requestConcurrency ?? deviceBudget.requestConcurrency);
+    this.#requests = new RequestQueue(
+      options.requestConcurrency ?? deviceBudget.requestConcurrency,
+    );
   }
 
   static async fromUrl(url: string, options: CopcPointCloudOptions = {}): Promise<CopcPointCloud> {
@@ -283,9 +294,7 @@ export class CopcPointCloud {
       }
       const root = await source.root();
       const coordinateOptions = {
-        ...(options.verticalDatum === undefined
-          ? {}
-          : { verticalDatum: options.verticalDatum }),
+        ...(options.verticalDatum === undefined ? {} : { verticalDatum: options.verticalDatum }),
         ...(options.geoidModel === undefined ? {} : { geoidModel: options.geoidModel }),
         ...(options.verticalOffsetMeters === undefined
           ? {}
@@ -293,13 +302,16 @@ export class CopcPointCloud {
       };
       const coordinateTransform = createCoordinateTransformDefinition(sourceCrs, coordinateOptions);
       const toCartesian = createCoordinateTransformer(sourceCrs, coordinateOptions);
-      decoder = options.useWorkers !== false && typeof Worker !== "undefined"
-        ? await CopcDecodeWorkerPool.create({
-            metadata: source.decodingMetadata(),
-            ...(coordinateTransform.geoidModel === undefined ? { cartesianTransform: coordinateTransform } : {}),
-            workerCount: options.workerCount ?? deviceBudget.workerCount,
-          })
-        : undefined;
+      decoder =
+        options.useWorkers !== false && typeof Worker !== "undefined"
+          ? await CopcDecodeWorkerPool.create({
+              metadata: source.decodingMetadata(),
+              ...(coordinateTransform.geoidModel === undefined
+                ? { cartesianTransform: coordinateTransform }
+                : {}),
+              workerCount: options.workerCount ?? deviceBudget.workerCount,
+            })
+          : undefined;
       const pointCloud = new CopcPointCloud(
         source,
         root,
@@ -324,42 +336,54 @@ export class CopcPointCloud {
     });
   }
 
-  get pointSize(): number { return this.#pointSize.value; }
+  get pointSize(): number {
+    return this.#pointSize.value;
+  }
 
   set pointSize(value: number) {
     if (!Number.isFinite(value) || value <= 0) throw new RangeError("pointSize must be positive");
     this.#pointSize.value = value;
   }
 
-  get opacity(): number { return this.#opacity; }
+  get opacity(): number {
+    return this.#opacity;
+  }
 
   set opacity(value: number) {
     this.#opacity = normalized(value, "opacity");
     for (const rendered of this.#rendered.values()) this.#applyColors(rendered);
   }
 
-  get outlineWidth(): number { return this.#outlineWidth; }
+  get outlineWidth(): number {
+    return this.#outlineWidth;
+  }
 
   set outlineWidth(value: number) {
     this.#outlineWidth = nonNegativeFinite(value, "outlineWidth");
     this.#applyOutlineToAll();
   }
 
-  get outlineColor(): Color { return Color.clone(this.#outlineColor); }
+  get outlineColor(): Color {
+    return Color.clone(this.#outlineColor);
+  }
 
   set outlineColor(value: Color) {
     this.#outlineColor = Color.clone(value);
     this.#applyOutlineToAll();
   }
 
-  get colorBy(): CopcColorMode { return this.#colorBy; }
+  get colorBy(): CopcColorMode {
+    return this.#colorBy;
+  }
 
   set colorBy(value: CopcColorMode) {
     this.#colorBy = value;
     for (const rendered of this.#rendered.values()) this.#applyColors(rendered);
   }
 
-  get filter(): CopcPointFilter | undefined { return this.#filter; }
+  get filter(): CopcPointFilter | undefined {
+    return this.#filter;
+  }
 
   set filter(value: CopcPointFilter | undefined) {
     this.#filter = value;
@@ -390,22 +414,21 @@ export class CopcPointCloud {
     }
     const view = this.#createViewState(frameState);
     this.#applyNextPendingFilter(view, frameState.camera);
-    const selection = selectLod(
-      this.#root,
-      (id) => this.#children.get(formatNodeId(id)),
-      view,
-      {
-        maximumScreenSpaceError: this.maximumScreenSpaceError,
-        pointBudget: this.pointBudget,
-        minimumRefinementCoverage: this.minimumRefinementCoverage,
-      },
-    );
+    const selection = selectLod(this.#root, (id) => this.#children.get(formatNodeId(id)), view, {
+      maximumScreenSpaceError: this.maximumScreenSpaceError,
+      pointBudget: this.pointBudget,
+      minimumRefinementCoverage: this.minimumRefinementCoverage,
+    });
     for (const node of selection.refinementRequested) this.#requestHierarchy(node);
-    const prioritizedNodes = selection.selected.map((node) => ({
-      node,
-      priority: this.#priority(node, view, frameState.camera),
-    })).sort((a, b) => b.priority - a.priority
-      || formatNodeId(a.node.id).localeCompare(formatNodeId(b.node.id)));
+    const prioritizedNodes = selection.selected
+      .map((node) => ({
+        node,
+        priority: this.#priority(node, view, frameState.camera),
+      }))
+      .sort(
+        (a, b) =>
+          b.priority - a.priority || formatNodeId(a.node.id).localeCompare(formatNodeId(b.node.id)),
+      );
     for (const { node, priority } of prioritizedNodes) {
       this.#requestNode(node, priority);
     }
@@ -424,15 +447,17 @@ export class CopcPointCloud {
     for (const [key, build] of this.#collectionBuilds) {
       if (!retainedKeys.has(key) && build.replaced === undefined) this.#cancelCollectionBuild(key);
     }
-    const visibleKeys = new Set(resolveReadyLod(
-      this.#root.id,
-      selection.selected.map((node) => node.id),
-      (node) => this.#rendered.has(formatNodeId(node)),
-      {
-        minimumRefinementCoverage: this.minimumRefinementCoverage,
-        weight: (node) => this.#projectedAreaWeight(node, frameState.camera),
-      },
-    ).map(formatNodeId));
+    const visibleKeys = new Set(
+      resolveReadyLod(
+        this.#root.id,
+        selection.selected.map((node) => node.id),
+        (node) => this.#rendered.has(formatNodeId(node)),
+        {
+          minimumRefinementCoverage: this.minimumRefinementCoverage,
+          weight: (node) => this.#projectedAreaWeight(node, frameState.camera),
+        },
+      ).map(formatNodeId),
+    );
     let visibleNodes = 0;
     let visiblePoints = 0;
     for (const [key, rendered] of this.#rendered) {
@@ -481,9 +506,13 @@ export class CopcPointCloud {
     };
   }
 
-  get boundingSphere(): BoundingSphere { return this.#sphere(this.#root.bounds); }
+  get boundingSphere(): BoundingSphere {
+    return this.#sphere(this.#root.bounds);
+  }
 
-  get lastError(): unknown { return this.#lastError; }
+  get lastError(): unknown {
+    return this.#lastError;
+  }
 
   /**
    * Temporarily prioritizes nodes along a viewport ray. Clear it to return to
@@ -495,10 +524,12 @@ export class CopcPointCloud {
       this.#detailDirection = undefined;
       return;
     }
-    if (!Number.isFinite(direction.x)
-      || !Number.isFinite(direction.y)
-      || !Number.isFinite(direction.z)
-      || Cartesian3.magnitudeSquared(direction) <= Number.EPSILON) {
+    if (
+      !Number.isFinite(direction.x) ||
+      !Number.isFinite(direction.y) ||
+      !Number.isFinite(direction.z) ||
+      Cartesian3.magnitudeSquared(direction) <= Number.EPSILON
+    ) {
       throw new RangeError("Detail focus direction must be finite and non-zero");
     }
     this.#detailDirection = Cartesian3.normalize(direction, new Cartesian3());
@@ -506,7 +537,8 @@ export class CopcPointCloud {
 
   pick(scene: Scene, windowPosition: Cartesian2): CopcPickedPoint | undefined {
     this.#assertAlive();
-    const picked = scene.pick(windowPosition) as { collection?: unknown; index?: unknown } | undefined;
+    const picked = scene.pick(windowPosition) as
+      { collection?: unknown; index?: unknown } | undefined;
     if (!picked || typeof picked.index !== "number") return undefined;
     for (const [key, rendered] of this.#rendered) {
       if (picked.collection !== rendered.collection) continue;
@@ -546,14 +578,15 @@ export class CopcPointCloud {
       throw new RangeError("GPS time window must be positive");
     }
     const steps = options.steps ?? 120;
-    if (!Number.isInteger(steps) || steps <= 0) throw new RangeError("Clock steps must be positive");
+    if (!Number.isInteger(steps) || steps <= 0)
+      throw new RangeError("Clock steps must be positive");
     this.#clockUnsubscribe?.();
     let previousStep = -1;
     const update = (): void => {
-      const fraction = Math.min(1, Math.max(
-        0,
-        JulianDate.secondsDifference(clock.currentTime, options.start) / duration,
-      ));
+      const fraction = Math.min(
+        1,
+        Math.max(0, JulianDate.secondsDifference(clock.currentTime, options.start) / duration),
+      );
       const step = Math.floor(fraction * steps);
       if (step === previousStep) return;
       previousStep = step;
@@ -561,7 +594,9 @@ export class CopcPointCloud {
       this.filter = {
         ...this.#filter,
         gpsTime: [
-          options.window === undefined ? options.gpsStart : Math.max(options.gpsStart, gpsTime - options.window),
+          options.window === undefined
+            ? options.gpsStart
+            : Math.max(options.gpsStart, gpsTime - options.window),
           gpsTime,
         ],
       };
@@ -576,7 +611,9 @@ export class CopcPointCloud {
     return unsubscribe;
   }
 
-  isDestroyed(): boolean { return this.#destroyed; }
+  isDestroyed(): boolean {
+    return this.#destroyed;
+  }
 
   destroy(): undefined {
     if (this.#destroyed) return undefined;
@@ -602,11 +639,15 @@ export class CopcPointCloud {
     const key = formatNodeId(node.id);
     if (this.#children.has(key) || this.#hierarchyLoading.has(key)) return;
     this.#hierarchyLoading.add(key);
-    void this.#source.getHierarchy(node.id).then((children) => {
-      if (!this.#destroyed) this.#children.set(key, children);
-    }).catch((error: unknown) => {
-      this.#lastError = error;
-    }).finally(() => this.#hierarchyLoading.delete(key));
+    void this.#source
+      .getHierarchy(node.id)
+      .then((children) => {
+        if (!this.#destroyed) this.#children.set(key, children);
+      })
+      .catch((error: unknown) => {
+        this.#lastError = error;
+      })
+      .finally(() => this.#hierarchyLoading.delete(key));
   }
 
   #requestNode(node: HierarchyEntry, priority: number): void {
@@ -621,47 +662,47 @@ export class CopcPointCloud {
     // Preserve the zero-copy cache-hit path when no compact filter variant is
     // needed. This was the original fast path for revisiting nearby regions.
     if (decoded && this.#filter === undefined) {
-      this.#scheduleCollectionBuild(
-        key,
-        decoded.data,
-        decoded.data,
-        this.#filterGeneration,
-      );
+      this.#scheduleCollectionBuild(key, decoded.data, decoded.data, this.#filterGeneration);
       return;
     }
     this.#nodeLoading.add(key);
     const controller = new AbortController();
     this.#nodeControllers.set(key, controller);
-    void this.#requests.add(
-      async (signal) => {
-        let sourceData = decoded?.data;
-        if (!sourceData) {
-          if (!this.#decoder) {
-            sourceData = await this.#source.loadNode(node.id, this.#dimensions, signal);
-          } else {
-            const compressed = await this.#source.loadCompressedNode(node.id, signal);
-            sourceData = await this.#decoder.decodeNode(compressed, this.#dimensions, signal);
+    void this.#requests
+      .add(
+        async (signal) => {
+          let sourceData = decoded?.data;
+          if (!sourceData) {
+            if (!this.#decoder) {
+              sourceData = await this.#source.loadNode(node.id, this.#dimensions, signal);
+            } else {
+              const compressed = await this.#source.loadCompressedNode(node.id, signal);
+              sourceData = await this.#decoder.decodeNode(compressed, this.#dimensions, signal);
+            }
           }
-        }
-        const filterGeneration = this.#filterGeneration;
-        const renderData = await this.#prepareRenderData(sourceData, this.#filter, signal);
-        return { sourceData, renderData, filterGeneration } satisfies PreparedNode;
-      },
-      { key, priority, signal: controller.signal },
-    ).then(({ sourceData, renderData, filterGeneration }) => {
-      if (this.#destroyed) return;
-      const decodedEvictions = this.#decodedCache.set(key, {
-        data: sourceData,
-        byteLength: pointNodeByteLength(sourceData),
+          const filterGeneration = this.#filterGeneration;
+          const renderData = await this.#prepareRenderData(sourceData, this.#filter, signal);
+          return { sourceData, renderData, filterGeneration } satisfies PreparedNode;
+        },
+        { key, priority, signal: controller.signal },
+      )
+      .then(({ sourceData, renderData, filterGeneration }) => {
+        if (this.#destroyed) return;
+        const decodedEvictions = this.#decodedCache.set(key, {
+          data: sourceData,
+          byteLength: pointNodeByteLength(sourceData),
+        });
+        for (const [evictedKey] of decodedEvictions) this.#evictRendered(evictedKey);
+        this.#scheduleCollectionBuild(key, sourceData, renderData, filterGeneration);
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError"))
+          this.#lastError = error;
+      })
+      .finally(() => {
+        this.#nodeLoading.delete(key);
+        this.#nodeControllers.delete(key);
       });
-      for (const [evictedKey] of decodedEvictions) this.#evictRendered(evictedKey);
-      this.#scheduleCollectionBuild(key, sourceData, renderData, filterGeneration);
-    }).catch((error: unknown) => {
-      if (!(error instanceof DOMException && error.name === "AbortError")) this.#lastError = error;
-    }).finally(() => {
-      this.#nodeLoading.delete(key);
-      this.#nodeControllers.delete(key);
-    });
   }
 
   #evictRendered(key: string, removeFromGpuCache = true): void {
@@ -719,10 +760,7 @@ export class CopcPointCloud {
     };
   }
 
-  #processCollectionBuilds(
-    view: ViewState,
-    camera: CesiumFrameState["camera"],
-  ): void {
+  #processCollectionBuilds(view: ViewState, camera: CesiumFrameState["camera"]): void {
     if (this.#collectionBuilds.size === 0) return;
     const started = performance.now();
     const deadline = started + this.uploadTimeBudgetMilliseconds;
@@ -750,11 +788,14 @@ export class CopcPointCloud {
             Cartesian3.subtract(build.worldPosition, build.origin, build.localPosition);
           }
           build.material.color = this.#colorForPoint(node, i);
-          build.collection.add({
-            position: build.localPosition,
-            material: build.material,
-            show: true,
-          }, build.point);
+          build.collection.add(
+            {
+              position: build.localPosition,
+              material: build.material,
+              show: true,
+            },
+            build.point,
+          );
           build.index += 1;
           if ((build.index & 255) === 0 && performance.now() >= deadline) return;
         }
@@ -837,13 +878,10 @@ export class CopcPointCloud {
     replaced?: RenderedNode,
   ): void {
     this.#cancelCollectionBuild(key);
-    this.#collectionBuilds.set(key, this.#createCollectionBuild(
+    this.#collectionBuilds.set(
       key,
-      sourceData,
-      renderData,
-      filterGeneration,
-      replaced,
-    ));
+      this.#createCollectionBuild(key, sourceData, renderData, filterGeneration, replaced),
+    );
   }
 
   #applyColors(rendered: RenderedNode): void {
@@ -857,10 +895,7 @@ export class CopcPointCloud {
     }
   }
 
-  #applyNextPendingFilter(
-    view: ViewState,
-    camera: CesiumFrameState["camera"],
-  ): void {
+  #applyNextPendingFilter(view: ViewState, camera: CesiumFrameState["camera"]): void {
     if (this.#filterLoading.size >= 2) return;
     let key: string | undefined;
     let selectedPriority = Number.NEGATIVE_INFINITY;
@@ -886,16 +921,20 @@ export class CopcPointCloud {
     const generation = this.#filterGeneration;
     const controller = new AbortController();
     this.#filterLoading.set(key, controller);
-    void this.#prepareRenderData(sourceData, this.#filter, controller.signal).then((renderData) => {
-      if (this.#destroyed || generation !== this.#filterGeneration) return;
-      const current = this.#rendered.get(key);
-      if (!current || current.sourceData !== sourceData) return;
-      this.#scheduleCollectionBuild(key, sourceData, renderData, generation, current);
-    }).catch((error: unknown) => {
-      if (!(error instanceof DOMException && error.name === "AbortError")) this.#lastError = error;
-    }).finally(() => {
-      if (this.#filterLoading.get(key) === controller) this.#filterLoading.delete(key);
-    });
+    void this.#prepareRenderData(sourceData, this.#filter, controller.signal)
+      .then((renderData) => {
+        if (this.#destroyed || generation !== this.#filterGeneration) return;
+        const current = this.#rendered.get(key);
+        if (!current || current.sourceData !== sourceData) return;
+        this.#scheduleCollectionBuild(key, sourceData, renderData, generation, current);
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError"))
+          this.#lastError = error;
+      })
+      .finally(() => {
+        if (this.#filterLoading.get(key) === controller) this.#filterLoading.delete(key);
+      });
   }
 
   async #prepareRenderData(
@@ -916,7 +955,7 @@ export class CopcPointCloud {
     camera: CesiumFrameState["camera"],
   ): number {
     const bounds = boundsForNode(this.#root.bounds, node.id);
-    const visibilityRank = currentlyShown ? 2 : (view.isVisible(bounds) ? 1 : 0);
+    const visibilityRank = currentlyShown ? 2 : view.isVisible(bounds) ? 1 : 0;
     const hierarchyNode: HierarchyEntry = {
       id: node.id,
       bounds,
@@ -957,16 +996,20 @@ export class CopcPointCloud {
         const height = node.positions[index * 3 + 2]!;
         const minimum = this.#root.bounds[2];
         const range = Math.max(this.#root.bounds[5] - minimum, Number.EPSILON);
-        return this.#withOpacity(Color.fromHsl(
-          (1 - Math.min(1, Math.max(0, (height - minimum) / range))) * 0.7,
-          1,
-          0.5,
-        ));
+        return this.#withOpacity(
+          Color.fromHsl((1 - Math.min(1, Math.max(0, (height - minimum) / range))) * 0.7, 1, 0.5),
+        );
       }
       case "rgb":
-        return this.#withOpacity(node.colors
-          ? Color.fromBytes(node.colors[index * 3]!, node.colors[index * 3 + 1]!, node.colors[index * 3 + 2]!)
-          : Color.WHITE);
+        return this.#withOpacity(
+          node.colors
+            ? Color.fromBytes(
+                node.colors[index * 3]!,
+                node.colors[index * 3 + 1]!,
+                node.colors[index * 3 + 2]!,
+              )
+            : Color.WHITE,
+        );
     }
   }
 
@@ -979,7 +1022,8 @@ export class CopcPointCloud {
     return {
       viewportHeight: frameState.context.drawingBufferHeight,
       verticalFieldOfView: camera.frustum.fovy ?? Math.PI / 3,
-      isVisible: (bounds) => frameState.cullingVolume.computeVisibility(this.#sphere(bounds)) !== Intersect.OUTSIDE,
+      isVisible: (bounds) =>
+        frameState.cullingVolume.computeVisibility(this.#sphere(bounds)) !== Intersect.OUTSIDE,
       distanceTo: (bounds) => Math.sqrt(this.#box(bounds).distanceSquaredTo(camera.positionWC)),
       screenWeight: (bounds) => this.#projectedBoundsWeight(bounds, camera),
       refinementWeight: (bounds) => this.#refinementWeight(bounds, camera),
@@ -1042,44 +1086,35 @@ export class CopcPointCloud {
   #refinementWeight(bounds: Bounds3, camera: CesiumFrameState["camera"]): number {
     const sphere = this.#sphere(bounds);
     const direction = this.#detailDirection ?? camera.directionWC;
-    const towardNode = Cartesian3.subtract(
-      sphere.center,
-      camera.positionWC,
-      refinementDirection,
-    );
+    const towardNode = Cartesian3.subtract(sphere.center, camera.positionWC, refinementDirection);
     const alongRay = Cartesian3.dot(towardNode, direction);
     if (alongRay <= 0) return 1;
     const perpendicularSquared = Math.max(
       0,
       Cartesian3.magnitudeSquared(towardNode) - alongRay * alongRay,
     );
-    const normalizedSquared = perpendicularSquared
-      / Math.max(sphere.radius * sphere.radius, Number.EPSILON);
+    const normalizedSquared =
+      perpendicularSquared / Math.max(sphere.radius * sphere.radius, Number.EPSILON);
     // A narrow boost follows the center/detail ray across fine octree cells.
     return 1 + 1.5 * Math.exp(-2 * normalizedSquared);
   }
 
-  #priority(
-    node: HierarchyEntry,
-    view: ViewState,
-    camera: CesiumFrameState["camera"],
-  ): number {
+  #priority(node: HierarchyEntry, view: ViewState, camera: CesiumFrameState["camera"]): number {
     const sphere = this.#sphere(node.bounds);
     const towardNode = Cartesian3.subtract(sphere.center, camera.positionWC, priorityDirection);
     const magnitudeSquared = Cartesian3.magnitudeSquared(towardNode);
-    const alignment = magnitudeSquared <= Number.EPSILON
-      ? 1
-      : Math.max(0, Cartesian3.dot(
-          Cartesian3.normalize(towardNode, towardNode),
-          camera.directionWC,
-        ));
+    const alignment =
+      magnitudeSquared <= Number.EPSILON
+        ? 1
+        : Math.max(
+            0,
+            Cartesian3.dot(Cartesian3.normalize(towardNode, towardNode), camera.directionWC),
+          );
     const focusDirection = this.#detailDirection ?? camera.directionWC;
-    const focusAlignment = magnitudeSquared <= Number.EPSILON
-      ? 1
-      : Math.max(0, Cartesian3.dot(
-          Cartesian3.normalize(towardNode, towardNode),
-          focusDirection,
-        ));
+    const focusAlignment =
+      magnitudeSquared <= Number.EPSILON
+        ? 1
+        : Math.max(0, Cartesian3.dot(Cartesian3.normalize(towardNode, towardNode), focusDirection));
     // Distance/SSE stays dominant in side views. Center bias only breaks ties
     // between similarly important nodes instead of pulling refinement forward.
     const centerWeight = 1 + 0.75 * alignment ** 8;
@@ -1096,9 +1131,10 @@ const priorityDirection = new Cartesian3();
 const refinementDirection = new Cartesian3();
 
 function pointNodeByteLength(node: PointCloudNode): number {
-  let bytes = node.positions.byteLength
-    + (node.colors?.byteLength ?? 0)
-    + (node.cartesian?.positions.byteLength ?? 0);
+  let bytes =
+    node.positions.byteLength +
+    (node.colors?.byteLength ?? 0) +
+    (node.cartesian?.positions.byteLength ?? 0);
   for (const attribute of Object.values(node.attributes)) bytes += attribute.byteLength;
   return bytes;
 }

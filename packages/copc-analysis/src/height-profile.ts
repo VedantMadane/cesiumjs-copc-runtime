@@ -43,11 +43,9 @@ export async function computeHeightProfile(
     Math.max(start[1], end[1]) + halfWidth,
     metadata.bounds[5],
   ] as const;
-  const dimensions = Array.from(new Set([
-    ...(options.dimensions ?? []),
-    "Classification",
-    "Intensity",
-  ]));
+  const dimensions = Array.from(
+    new Set([...(options.dimensions ?? []), "Classification", "Intensity"]),
+  );
   const matches: Array<{
     distance: number;
     x: number;
@@ -76,7 +74,9 @@ export async function computeHeightProfile(
         x,
         y,
         z: node.positions[i * 3 + 2]!,
-        ...(node.attributes.Classification ? { classification: node.attributes.Classification[i]! } : {}),
+        ...(node.attributes.Classification
+          ? { classification: node.attributes.Classification[i]! }
+          : {}),
         ...(node.attributes.Intensity ? { intensity: node.attributes.Intensity[i]! } : {}),
       });
       if (matches.length >= pointLimit) break outer;

@@ -42,15 +42,20 @@ export async function* queryBounds(
     }
     if (entry.id.depth < maximumDepth && matchedPoints < pointLimit) {
       signal?.throwIfAborted();
-      queue.push(...await source.getHierarchy(entry.id));
+      queue.push(...(await source.getHierarchy(entry.id)));
     }
   }
 }
 
 export function boundsIntersect(left: Bounds3, right: Bounds3): boolean {
-  return left[0] <= right[3] && left[3] >= right[0]
-    && left[1] <= right[4] && left[4] >= right[1]
-    && left[2] <= right[5] && left[5] >= right[2];
+  return (
+    left[0] <= right[3] &&
+    left[3] >= right[0] &&
+    left[1] <= right[4] &&
+    left[4] >= right[1] &&
+    left[2] <= right[5] &&
+    left[5] >= right[2]
+  );
 }
 
 function filterNode(node: PointCloudNode, bounds: Bounds3, limit: number): PointCloudNode {
@@ -59,9 +64,14 @@ function filterNode(node: PointCloudNode, bounds: Bounds3, limit: number): Point
     const x = node.positions[i * 3]!;
     const y = node.positions[i * 3 + 1]!;
     const z = node.positions[i * 3 + 2]!;
-    if (x >= bounds[0] && x <= bounds[3]
-      && y >= bounds[1] && y <= bounds[4]
-      && z >= bounds[2] && z <= bounds[5]) {
+    if (
+      x >= bounds[0] &&
+      x <= bounds[3] &&
+      y >= bounds[1] &&
+      y <= bounds[4] &&
+      z >= bounds[2] &&
+      z <= bounds[5]
+    ) {
       indices.push(i);
     }
   }

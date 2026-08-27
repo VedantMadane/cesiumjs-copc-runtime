@@ -30,8 +30,12 @@ export class RequestQueue {
     this.#concurrency = concurrency;
   }
 
-  get activeCount(): number { return this.#active; }
-  get pendingCount(): number { return this.#pending.length; }
+  get activeCount(): number {
+    return this.#active;
+  }
+  get pendingCount(): number {
+    return this.#pending.length;
+  }
 
   add<T>(run: (signal: AbortSignal) => Promise<T>, options: RequestOptions = {}): Promise<T> {
     if (this.#destroyed) return Promise.reject(new Error("Request queue has been destroyed"));
@@ -88,11 +92,14 @@ export class RequestQueue {
       }
       this.#active += 1;
       this.#activeControllers.add(request.controller);
-      void request.run(request.controller.signal).then(request.resolve, request.reject).finally(() => {
-        this.#active -= 1;
-        this.#activeControllers.delete(request.controller);
-        this.#drain();
-      });
+      void request
+        .run(request.controller.signal)
+        .then(request.resolve, request.reject)
+        .finally(() => {
+          this.#active -= 1;
+          this.#activeControllers.delete(request.controller);
+          this.#drain();
+        });
     }
   }
 }

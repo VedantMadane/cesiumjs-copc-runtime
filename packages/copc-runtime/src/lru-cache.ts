@@ -14,10 +14,16 @@ export class LruCache<K, V extends CacheValue> {
     this.#maximumBytes = maximumBytes;
   }
 
-  get byteLength(): number { return this.#byteLength; }
-  get size(): number { return this.#values.size; }
+  get byteLength(): number {
+    return this.#byteLength;
+  }
+  get size(): number {
+    return this.#values.size;
+  }
 
-  has(key: K): boolean { return this.#values.has(key); }
+  has(key: K): boolean {
+    return this.#values.has(key);
+  }
 
   get(key: K): V | undefined {
     const value = this.#values.get(key);

@@ -2,11 +2,7 @@ import { Cartesian3 } from "cesium";
 import type { CartesianTransformDefinition } from "cesiumjs-copc-core";
 import { egm96ToEllipsoid } from "egm96-universal";
 import proj4 from "proj4";
-import {
-  EPSG_DEFINITIONS,
-  normalizeEpsg,
-  registerEpsgDefinitions,
-} from "./epsg-definitions.js";
+import { EPSG_DEFINITIONS, normalizeEpsg, registerEpsgDefinitions } from "./epsg-definitions.js";
 
 export type ToCartesian = (x: number, y: number, z: number, result?: Cartesian3) => Cartesian3;
 
@@ -42,9 +38,10 @@ export function createCoordinateTransformer(
   return (x, y, z, result) => {
     const [longitude, latitude] = transform.forward([x, y]);
     const heightMeters = z * definition.verticalUnitToMeters;
-    const ellipsoidHeight = definition.geoidModel === "egm96"
-      ? egm96ToEllipsoid(latitude, longitude, heightMeters)
-      : heightMeters;
+    const ellipsoidHeight =
+      definition.geoidModel === "egm96"
+        ? egm96ToEllipsoid(latitude, longitude, heightMeters)
+        : heightMeters;
     return Cartesian3.fromDegrees(
       longitude,
       latitude,
@@ -64,10 +61,9 @@ export function createCoordinateTransformDefinition(
   if (options.verticalDatum !== undefined && options.geoidModel !== undefined) {
     throw new Error("Pass either verticalDatum or the deprecated geoidModel option, not both");
   }
-  const applyEgm96 = options.verticalDatum?.type === "geoid"
-    || (options.verticalDatum === undefined
-      && options.geoidModel === "egm96"
-      && orthometricHeight);
+  const applyEgm96 =
+    options.verticalDatum?.type === "geoid" ||
+    (options.verticalDatum === undefined && options.geoidModel === "egm96" && orthometricHeight);
   const verticalOffsetMeters = options.verticalOffsetMeters ?? 0;
   if (!Number.isFinite(verticalOffsetMeters)) {
     throw new RangeError("verticalOffsetMeters must be finite");
@@ -100,19 +96,19 @@ function decomposeCrs(sourceCrs: string): {
     };
   }
 
-  const horizontalCrs = extractWktComponent(sourceCrs, ["PROJCS", "PROJCRS"])
-    ?? extractWktComponent(sourceCrs, ["GEOGCS", "GEOGCRS"])
-    ?? sourceCrs;
+  const horizontalCrs =
+    extractWktComponent(sourceCrs, ["PROJCS", "PROJCRS"]) ??
+    extractWktComponent(sourceCrs, ["GEOGCS", "GEOGCRS"]) ??
+    sourceCrs;
   const verticalCrs = extractWktComponent(sourceCrs, ["VERT_CS", "VERTCRS"]);
-  const unitMatch = verticalCrs?.match(
-    /\b(?:LENGTHUNIT|UNIT)\s*\[\s*"[^"]*"\s*,\s*([+\-\d.eE]+)/i,
-  );
+  const unitMatch = verticalCrs?.match(/\b(?:LENGTHUNIT|UNIT)\s*\[\s*"[^"]*"\s*,\s*([+\-\d.eE]+)/i);
   const parsedUnit = unitMatch ? Number(unitMatch[1]) : 1;
   return {
     horizontalCrs,
     verticalUnitToMeters: Number.isFinite(parsedUnit) && parsedUnit > 0 ? parsedUnit : 1,
-    orthometricHeight: verticalCrs !== undefined
-      && /NAVD\s*88|EGM\s*(?:84|96|2008)|orthometric|gravity-related/i.test(verticalCrs),
+    orthometricHeight:
+      verticalCrs !== undefined &&
+      /NAVD\s*88|EGM\s*(?:84|96|2008)|orthometric|gravity-related/i.test(verticalCrs),
   };
 }
 
@@ -120,14 +116,18 @@ function resolveHorizontalCrs(definition: string): string {
   const directCode = normalizeEpsg(definition);
   if (directCode !== definition || /^EPSG:/i.test(definition)) return directCode;
 
-  const authorityMatches = Array.from(definition.matchAll(
-    /(?:AUTHORITY\s*\[\s*["']EPSG["']\s*,\s*["']?(\d+)|ID\s*\[\s*["']EPSG["']\s*,\s*(\d+))/gi,
-  ));
+  const authorityMatches = Array.from(
+    definition.matchAll(
+      /(?:AUTHORITY\s*\[\s*["']EPSG["']\s*,\s*["']?(\d+)|ID\s*\[\s*["']EPSG["']\s*,\s*(\d+))/gi,
+    ),
+  );
   const authority = authorityMatches.at(-1);
   const code = authority ? `EPSG:${authority[1] ?? authority[2]}` : undefined;
   const curated = code ? EPSG_DEFINITIONS[code] : undefined;
-  if (curated?.includes("+towgs84")
-    && !/\b(?:TOWGS84|ABRIDGEDTRANSFORMATION)\s*\[/i.test(definition)) {
+  if (
+    curated?.includes("+towgs84") &&
+    !/\b(?:TOWGS84|ABRIDGEDTRANSFORMATION)\s*\[/i.test(definition)
+  ) {
     return code!;
   }
   try {
@@ -152,7 +152,9 @@ function projectedLinearUnit(wkt: string): number | undefined {
     if (character === "[") depth += 1;
     else if (character === "]") depth -= 1;
     else {
-      const match = /^(?:LENGTHUNIT|UNIT)\s*\[\s*"[^"]*"\s*,\s*([+\-\d.eE]+)/i.exec(wkt.slice(index));
+      const match = /^(?:LENGTHUNIT|UNIT)\s*\[\s*"[^"]*"\s*,\s*([+\-\d.eE]+)/i.exec(
+        wkt.slice(index),
+      );
       if (!match) continue;
       const value = Number(match[1]);
       if (Number.isFinite(value) && value > 0) candidates.push({ depth, value });

@@ -58,13 +58,15 @@ export async function computeStatistics(
       maximum: pointCount === 0 ? Number.NaN : heightMaximum,
       mean: pointCount === 0 ? Number.NaN : heightSum / pointCount,
     },
-    ...(intensityCount === 0 ? {} : {
-      intensity: {
-        minimum: intensityMinimum,
-        maximum: intensityMaximum,
-        mean: intensitySum / intensityCount,
-      },
-    }),
+    ...(intensityCount === 0
+      ? {}
+      : {
+          intensity: {
+            minimum: intensityMinimum,
+            maximum: intensityMaximum,
+            mean: intensitySum / intensityCount,
+          },
+        }),
     classifications,
   };
 }

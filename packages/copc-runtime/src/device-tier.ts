@@ -44,10 +44,14 @@ export function classifyDevice(probe: DeviceProbe = probeDevice()): DeviceTier {
   const memory = probe.memoryGigabytes;
   const cores = probe.hardwareConcurrency;
   const pixelRatio = probe.devicePixelRatio ?? 1;
-  if ((memory !== undefined && memory <= 4) || (cores !== undefined && cores <= 4) || pixelRatio >= 3) {
+  if (
+    (memory !== undefined && memory <= 4) ||
+    (cores !== undefined && cores <= 4) ||
+    pixelRatio >= 3
+  ) {
     return "low";
   }
-  if ((memory !== undefined && memory >= 8) && (cores !== undefined && cores >= 8)) return "high";
+  if (memory !== undefined && memory >= 8 && cores !== undefined && cores >= 8) return "high";
   return "medium";
 }
 
@@ -62,6 +66,7 @@ export function probeDevice(): DeviceProbe {
     ...(memory === undefined ? {} : { memoryGigabytes: memory }),
     hardwareConcurrency: navigator.hardwareConcurrency,
     mobile: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent),
-    devicePixelRatio: typeof globalThis.devicePixelRatio === "number" ? globalThis.devicePixelRatio : 1,
+    devicePixelRatio:
+      typeof globalThis.devicePixelRatio === "number" ? globalThis.devicePixelRatio : 1,
   };
 }

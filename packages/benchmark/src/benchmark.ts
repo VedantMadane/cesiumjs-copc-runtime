@@ -48,23 +48,27 @@ export async function benchmarkCopc(
     const metadataFinished = performance.now();
     const nodes = await collectBenchmarkNodes(source, targetPoints, maximumNodes);
     const hierarchyFinished = performance.now();
-    const dimensions = options.dimensions ?? ["Red", "Green", "Blue", "Intensity", "Classification"];
+    const dimensions = options.dimensions ?? [
+      "Red",
+      "Green",
+      "Blue",
+      "Intensity",
+      "Classification",
+    ];
     const first = nodes[0];
     if (!first) throw new Error("COPC hierarchy does not contain a root node");
     const firstData = await source.loadNode(first.id, dimensions);
     const firstPointFinished = performance.now();
-    const rest = await mapConcurrent(
-      nodes.slice(1),
-      concurrency,
-      (node) => source.loadNode(node.id, dimensions),
+    const rest = await mapConcurrent(nodes.slice(1), concurrency, (node) =>
+      source.loadNode(node.id, dimensions),
     );
     const decodeFinished = performance.now();
-    const decodedPoints = firstData.pointCount
-      + rest.reduce((total, node) => total + node.pointCount, 0);
+    const decodedPoints =
+      firstData.pointCount + rest.reduce((total, node) => total + node.pointCount, 0);
     const decodeMilliseconds = decodeFinished - hierarchyFinished;
     const memory = process.memoryUsage();
     const statistics = source.statistics;
-    const deepest = nodes.reduce((best, node) => node.id.depth > best.id.depth ? node : best);
+    const deepest = nodes.reduce((best, node) => (node.id.depth > best.id.depth ? node : best));
     return {
       url,
       ...(statistics.contentLength === undefined ? {} : { fileBytes: statistics.contentLength }),

@@ -25,8 +25,12 @@ class ProfileSource implements PointCloudSource {
       dimensions: ["X", "Y", "Z", "Classification", "Intensity"],
     });
   }
-  root(): Promise<HierarchyEntry> { return Promise.resolve(root); }
-  getHierarchy(_node: NodeId): Promise<readonly HierarchyEntry[]> { return Promise.resolve([]); }
+  root(): Promise<HierarchyEntry> {
+    return Promise.resolve(root);
+  }
+  getHierarchy(_node: NodeId): Promise<readonly HierarchyEntry[]> {
+    return Promise.resolve([]);
+  }
   loadNode(): Promise<PointCloudNode> {
     return Promise.resolve({
       id: root.id,

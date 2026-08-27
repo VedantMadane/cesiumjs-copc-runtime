@@ -173,20 +173,13 @@ viewer.scene.canvas.addEventListener("pointermove", (event) => {
   previousPointerX = event.clientX;
   previousPointerY = event.clientY;
   const radiansPerPixel = 0.004;
-  cameraOrbitHeading = CesiumMath.zeroToTwoPi(
-    cameraOrbitHeading + deltaX * radiansPerPixel,
-  );
+  cameraOrbitHeading = CesiumMath.zeroToTwoPi(cameraOrbitHeading + deltaX * radiansPerPixel);
   cameraOrbitPitch = CesiumMath.clamp(
     cameraOrbitPitch - deltaY * radiansPerPixel,
     CesiumMath.toRadians(-85),
     CesiumMath.toRadians(-5),
   );
-  applyCameraOrbit(
-    cameraOrbitPivot!,
-    cameraOrbitHeading,
-    cameraOrbitPitch,
-    cameraOrbitRange,
-  );
+  applyCameraOrbit(cameraOrbitPivot!, cameraOrbitHeading, cameraOrbitPitch, cameraOrbitRange);
   syncCameraAngleControls();
 });
 
@@ -261,7 +254,7 @@ viewer.scene.postRender.addEventListener(() => {
   frameCount += 1;
   const fpsElapsed = now - fpsWindowStarted;
   if (fpsElapsed >= 500) {
-    measuredFps = frameCount * 1_000 / fpsElapsed;
+    measuredFps = (frameCount * 1_000) / fpsElapsed;
     frameCount = 0;
     fpsWindowStarted = now;
   }
@@ -283,9 +276,8 @@ viewer.scene.postRender.addEventListener(() => {
   decodeTime.textContent = `${stats.workerDecodeMilliseconds.toFixed(0)} ms`;
   buildTime.textContent = `${stats.mainThreadBuildMilliseconds.toFixed(0)} ms`;
   fpsOutput.textContent = measuredFps.toFixed(0);
-  firstPointOutput.textContent = firstPointMilliseconds === undefined
-    ? "—"
-    : `${firstPointMilliseconds.toFixed(0)} ms`;
+  firstPointOutput.textContent =
+    firstPointMilliseconds === undefined ? "—" : `${firstPointMilliseconds.toFixed(0)} ms`;
   if (previousLoadingNodes > 0 && stats.loadingNodes === 0) {
     cameraFocusNeedsDepthUpdate = true;
   }
@@ -307,10 +299,7 @@ function scheduleDetailFocus(event: PointerEvent): void {
     detailFocusTimer = undefined;
     if (!layer) return;
     const canvasBounds = viewer.scene.canvas.getBoundingClientRect();
-    const windowPosition = new Cartesian2(
-      clientX - canvasBounds.left,
-      clientY - canvasBounds.top,
-    );
+    const windowPosition = new Cartesian2(clientX - canvasBounds.left, clientY - canvasBounds.top);
     const ray = viewer.camera.getPickRay(windowPosition);
     if (!ray) return;
     layer.setDetailFocus(ray.direction);
@@ -360,19 +349,24 @@ function updateCameraFocusTarget(useDepth: boolean): void {
   cameraFocusLabel.textContent = `FOCUS · ${formatDistance(distance)}`;
 }
 
-viewer.screenSpaceEventHandler.setInputAction(((movement: { position: Parameters<CopcPointCloud["pick"]>[1] }) => {
-  const point = layer?.pick(viewer.scene, movement.position);
-  if (!point) return;
-  void reportPickedPoint(point);
-}) as ScreenSpaceEventHandler.PositionedEventCallback, ScreenSpaceEventType.LEFT_CLICK);
+viewer.screenSpaceEventHandler.setInputAction(
+  ((movement: { position: Parameters<CopcPointCloud["pick"]>[1] }) => {
+    const point = layer?.pick(viewer.scene, movement.position);
+    if (!point) return;
+    void reportPickedPoint(point);
+  }) as ScreenSpaceEventHandler.PositionedEventCallback,
+  ScreenSpaceEventType.LEFT_CLICK,
+);
 
 function setBaseMap(value: string): void {
   viewer.imageryLayers.removeAll();
   if (value === "osm") {
-    viewer.imageryLayers.addImageryProvider(new OpenStreetMapImageryProvider({
-      url: "https://tile.openstreetmap.org/",
-      maximumLevel: 19,
-    }));
+    viewer.imageryLayers.addImageryProvider(
+      new OpenStreetMapImageryProvider({
+        url: "https://tile.openstreetmap.org/",
+        maximumLevel: 19,
+      }),
+    );
   }
   viewer.scene.requestRender();
 }
@@ -401,10 +395,12 @@ function syncCameraAngleControls(): void {
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLInputElement
-    || target instanceof HTMLSelectElement
-    || target instanceof HTMLTextAreaElement
-    || (target instanceof HTMLElement && target.isContentEditable);
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
 }
 
 function updateCameraAngleLabels(): void {
@@ -424,12 +420,7 @@ function applyCameraAngle(): void {
   );
 }
 
-function applyCameraOrbit(
-  pivot: Cartesian3,
-  heading: number,
-  pitch: number,
-  range: number,
-): void {
+function applyCameraOrbit(pivot: Cartesian3, heading: number, pitch: number, range: number): void {
   viewer.camera.lookAt(pivot, new HeadingPitchRange(heading, pitch, range));
   // lookAt switches the camera into a target-relative reference frame. Restore
   // world coordinates without changing the pose so regular pan/orbit controls
@@ -438,8 +429,9 @@ function applyCameraOrbit(
 }
 
 function centerCameraPivot(): Cartesian3 | undefined {
-  return centerSurfacePoint()
-    ?? (layer ? Cartesian3.clone(layer.boundingSphere.center) : undefined);
+  return (
+    centerSurfacePoint() ?? (layer ? Cartesian3.clone(layer.boundingSphere.center) : undefined)
+  );
 }
 
 function centerSurfacePoint(useDepth = true): Cartesian3 | undefined {
@@ -467,10 +459,7 @@ function cameraOrbitFromPivot(pivot: Cartesian3): HeadingPitchRange {
   Matrix4.multiplyByPointAsVector(inversePivotTransform, cameraOffset, localCameraOffset);
   const range = Math.max(Cartesian3.magnitude(localCameraOffset), 1);
   const pitch = Math.asin(CesiumMath.clamp(-localCameraOffset.z / range, -1, 1));
-  const heading = CesiumMath.zeroToTwoPi(Math.atan2(
-    -localCameraOffset.x,
-    -localCameraOffset.y,
-  ));
+  const heading = CesiumMath.zeroToTwoPi(Math.atan2(-localCameraOffset.x, -localCameraOffset.y));
   return new HeadingPitchRange(heading, pitch, range);
 }
 
@@ -489,9 +478,10 @@ async function setTerrain(value: "ellipsoid" | "world"): Promise<void> {
       viewer.scene.globe.enableLighting = false;
     }
     terrainMode = value;
-    let terrainStatus = value === "world"
-      ? "Cesium World Terrain enabled"
-      : "WGS84 ellipsoid h=0 reference enabled (no physical terrain)";
+    let terrainStatus =
+      value === "world"
+        ? "Cesium World Terrain enabled"
+        : "WGS84 ellipsoid h=0 reference enabled (no physical terrain)";
     if (value === "world" && layer) {
       const center = Cartographic.fromCartesian(layer.boundingSphere.center);
       const sampled = (await sampleTerrainMostDetailed(viewer.terrainProvider, [center]))[0];
@@ -512,18 +502,24 @@ async function setTerrain(value: "ellipsoid" | "world"): Promise<void> {
   }
 }
 
-async function reportPickedPoint(point: NonNullable<ReturnType<CopcPointCloud["pick"]>>): Promise<void> {
+async function reportPickedPoint(
+  point: NonNullable<ReturnType<CopcPointCloud["pick"]>>,
+): Promise<void> {
   const classification = point.attributes.Classification ?? "—";
   status.textContent = `${point.node} · point ${point.height.toFixed(2)} m · sampling surface…`;
   try {
-    const surfaceHeight = terrainMode === "world"
-      ? (await sampleTerrainMostDetailed(viewer.terrainProvider, [
-          Cartographic.fromDegrees(point.longitude, point.latitude),
-        ]))[0]?.height
-      : 0;
-    const comparison = surfaceHeight === undefined
-      ? "surface unavailable"
-      : `surface ${surfaceHeight.toFixed(2)} m · Δ ${(point.height - surfaceHeight).toFixed(2)} m`;
+    const surfaceHeight =
+      terrainMode === "world"
+        ? (
+            await sampleTerrainMostDetailed(viewer.terrainProvider, [
+              Cartographic.fromDegrees(point.longitude, point.latitude),
+            ])
+          )[0]?.height
+        : 0;
+    const comparison =
+      surfaceHeight === undefined
+        ? "surface unavailable"
+        : `surface ${surfaceHeight.toFixed(2)} m · Δ ${(point.height - surfaceHeight).toFixed(2)} m`;
     status.textContent = `${point.node} · point ${point.height.toFixed(2)} m · ${comparison} · class ${classification}`;
   } catch (error) {
     status.textContent = `${point.node} · point ${point.height.toFixed(2)} m · ${errorMessage(error)}`;
@@ -550,7 +546,8 @@ async function load(url: string): Promise<void> {
   try {
     const diagnosis = await CopcPointCloud.validateUrl(url);
     if (!diagnosis.supportsRanges) throw new Error("The server does not support HTTP byte ranges.");
-    if (!diagnosis.copcValid) throw new Error(diagnosis.error ?? "The URL is not a valid COPC file.");
+    if (!diagnosis.copcValid)
+      throw new Error(diagnosis.error ?? "The URL is not a valid COPC file.");
     if (layer) {
       viewer.scene.primitives.remove(layer);
       layer = undefined;

@@ -6,9 +6,11 @@ type LazPerfOptions = Parameters<typeof createWorkerLazPerf>[0];
 /** Vite-safe laz-perf factory with an explicit WASM URL. */
 export function createLazPerf(options?: LazPerfOptions) {
   const overrides = options ?? {};
-  const fallbackLocateFile = (overrides as {
-    locateFile?: (path: string, prefix: string) => string;
-  }).locateFile;
+  const fallbackLocateFile = (
+    overrides as {
+      locateFile?: (path: string, prefix: string) => string;
+    }
+  ).locateFile;
   const factory = typeof document === "undefined" ? createWorkerLazPerf : createWebLazPerf;
   return factory({
     ...overrides,

@@ -36,6 +36,17 @@ This project:  one COPC file ─────── HTTP byte ranges ────
                                       └───────────────────────→ analysis
 ```
 
+| Axis                              | 3D Tiles pipeline           | This project     |
+| --------------------------------- | --------------------------- | ---------------- |
+| Preprocessing before first view   | Whole dataset, 3 min floor  | None             |
+| Copies stored                     | 2                           | 1                |
+| Cost when the source changes      | Reconvert                   | None             |
+| Attributes available for analysis | Selected at conversion      | All LAS dimensions |
+
+[Pipeline comparison](docs/pipeline-comparison.md) shows how each row was derived and
+labels which are measured, structural, or deliberately left unmeasured. It also lists
+the cases where converting to 3D Tiles is still the better choice.
+
 ## Evidence at a glance
 
 | Evidence                                 |                                       Current result |

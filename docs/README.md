@@ -26,6 +26,7 @@ before changing it.
 
 | Document                                       | Read this when                                                     |
 | ---------------------------------------------- | ------------------------------------------------------------------ |
+| [Evaluation evidence](evaluation-evidence.ko.md) | Reviewing the project against the first-round written criteria    |
 | [Benchmarks](benchmarks.md)                    | Reproducing the published streaming and decode numbers             |
 | [Pipeline comparison](pipeline-comparison.md)  | Weighing direct streaming against converting to 3D Tiles           |
 | [Development](development.md)                  | Setting up the workspace and running the quality gates             |
